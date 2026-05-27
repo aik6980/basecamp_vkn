@@ -14,9 +14,10 @@ Texture2D Textures_srv[]; //: register(t0, space1);
  
 float4 main(PS_INPUT input) : SV_Target0
 {
-    return float4(input.colour, 0.0);
+    //return float4(input.colour, 0.0);
     
-    //float3 tex_color = Textures_srv[input.texture_id].Sample(Linear_sam, input.uv).rgb;
-    //return float4(tex_color, 1.0);
-
+    uint safe_id = min(input.texture_id, 0u);
+    float3 tex_color = Textures_srv[safe_id].Sample(Linear_sam, input.uv_coord).rgb;
+    return float4(tex_color, 1.0);
+    
 }

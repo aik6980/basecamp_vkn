@@ -77,26 +77,38 @@ void Main_renderer::draw()
     // 2nd draw
     {
         auto&& technique = shader_manager.get_technique("test/bindless_textures").lock();
+
+        auto&& technique_instance = VKN::Technique_instance(*technique);
+
+        std::vector<std::string> bindless_textures = {
+            "t_checkerboard",
+        };
+
+        const bool textures_ok = technique_instance.bind_sampled_images_by_name("Textures_srv", bindless_textures);
+        const bool sampler_ok  = technique_instance.bind_sampler_by_name("Linear_sam", "s_linear_wrap");
+
         command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
+        const bool apply_ok = textures_ok && sampler_ok && technique_instance.apply();
+        assert(apply_ok);
+
         command_buffer->draw(6, 4, 0, 0);
     }
 
     // 3rd draw
     {
         auto&& technique = shader_manager.get_technique("test/constant_buffer").lock();
-    
-    
+
         auto&& technique_instance = VKN::Technique_instance(*technique);
         float data[]              = {0.25f, -0.25f};
         const bool bound_ok       = technique_instance.bind_constant_by_name("Data_cbv", data, sizeof(data));
-    
-        float psData[]            = {0.8f, 0.1f, 0.6f};
-        const bool psData_bound_ok       = technique_instance.bind_constant_by_name("PsData_cbv", psData, sizeof(psData));
-    
+
+        float psData[]             = {0.8f, 0.1f, 0.6f};
+        const bool psData_bound_ok = technique_instance.bind_constant_by_name("PsData_cbv", psData, sizeof(psData));
+
         command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
         const bool apply_ok = bound_ok && psData_bound_ok && technique_instance.apply();
         assert(apply_ok);
-    
+
         command_buffer->draw(3, 1, 0, 0);
     }
 

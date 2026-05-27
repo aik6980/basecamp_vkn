@@ -7,12 +7,12 @@ Requirements
 
 Support multiple bindings per descriptor set - done
 Bind resources by reflected resource name - done
+Provide one apply step to write and bind all descriptor sets - done
+Support bindless resources - done
 Validate type compatibility: CBV, SRV, UAV, Sampler
-Provide one apply step to write and bind all descriptor sets
-Support bindless resources
-Bindless Scope
+Bindless Scope -done
 
-Descriptor array binding by reflected name
+Descriptor array binding by reflected name - done
 Variable descriptor count support
 Partially bound descriptor arrays
 Validation-safe indexing and descriptor writes

@@ -272,3 +272,17 @@ TextureData TextureDataGenerator::create_checkerboard_texture(int texture_width)
 
     return texture_data;
 }
+
+TextureData TextureDataGenerator::create_solid_texture(int texture_width, const XMCOLOR& colour)
+{
+    TextureData texture_data;
+    texture_data.reset(texture_width, texture_width);
+    float value;
+    for (int row = 0; row < texture_width; row++) {
+        for (int col = 0; col < texture_width; col++) {
+            texture_data.set_data(row, col, colour);
+        }
+    }
+
+    return texture_data;
+}

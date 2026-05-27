@@ -10,12 +10,15 @@ class MeshDataGenerator {
     static Mesh_data create_grid(float width, float depth, uint32_t m, uint32_t n);
 
     static vector<Fat_vertex> to_fat(const Mesh_vertex_array& vertex_array);
-    static vector<RT_vertex>  to_rt(const Mesh_vertex_array& vertex_array);
-    static vector<P1_vertex>  to_p1(const Mesh_vertex_array& vertex_array);
-    static vector<PC_vertex>  to_p1c1(const Mesh_vertex_array& vertex_array);
+    static vector<RT_vertex> to_rt(const Mesh_vertex_array& vertex_array);
+    static vector<P1_vertex> to_p1(const Mesh_vertex_array& vertex_array);
+    static vector<PC_vertex> to_p1c1(const Mesh_vertex_array& vertex_array);
 };
 
 class TextureDataGenerator {
   public:
     static TextureData create_checkerboard_texture(int texture_width);
+    static TextureData create_solid_texture(int texture_width, const XMCOLOR& colour);
+    static TextureData create_gradient_texture(int texture_width);
+    static TextureData create_strip_texture(int texture_width);
 };

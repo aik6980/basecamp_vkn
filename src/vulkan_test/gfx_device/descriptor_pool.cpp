@@ -8,11 +8,16 @@ namespace VKN {
     {
         auto&& device = m_gfx_device.m_device;
 
-        auto&& pool_size   = vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, Descriptor_pool::m_max_descriptor);
-        auto&& create_info = vk::DescriptorPoolCreateInfo{
+        std::array<vk::DescriptorPoolSize, 3> pool_sizes = {
+            vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, Descriptor_pool::m_max_descriptor),
+            vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, Descriptor_pool::m_max_descriptor),
+            vk::DescriptorPoolSize(vk::DescriptorType::eSampler, Descriptor_pool::m_max_descriptor),
+        };
+
+        vk::DescriptorPoolCreateInfo create_info{
             .maxSets       = Descriptor_pool::m_max_descriptor,
-            .poolSizeCount = 1,
-            .pPoolSizes    = &pool_size,
+            .poolSizeCount = static_cast<uint32_t>(pool_sizes.size()),
+            .pPoolSizes    = pool_sizes.data(),
         };
 
         m_descriptor_pool = device.createDescriptorPool(create_info);
@@ -31,7 +36,8 @@ namespace VKN {
         m_descriptor_sets.clear();
     }
 
-    vk::DescriptorSet& Descriptor_pool::create_descriptor_set(const vk::DescriptorSetLayout& layout)
+    vk::DescriptorSet& Descriptor_pool::create_descriptor_set(
+        const vk::DescriptorSetLayout& layout, uint32_t variable_descriptor_count)
     {
         auto&& device = m_gfx_device.m_device;
 
@@ -39,6 +45,13 @@ namespace VKN {
         alloc_info.descriptorPool     = m_descriptor_pool;
         alloc_info.descriptorSetCount = 1;
         alloc_info.pSetLayouts        = &layout;
+
+        vk::DescriptorSetVariableDescriptorCountAllocateInfo variable_count_info{};
+        if (variable_descriptor_count > 0) {
+            variable_count_info.descriptorSetCount = 1;
+            variable_count_info.pDescriptorCounts  = &variable_descriptor_count;
+            alloc_info.pNext                       = &variable_count_info;
+        }
 
         auto&& descriptor_sets = device.allocateDescriptorSets(alloc_info);
         return m_descriptor_sets.emplace_back(descriptor_sets[0]);

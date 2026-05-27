@@ -1051,7 +1051,7 @@ namespace VKN {
                    : nullptr;
     }
 
-    void Device::destroy_resource(Image& resource)
+    void Device::destroy_resource(Texture& resource)
     {
         if (resource.m_view) {
             m_device.destroyImageView(resource.m_view);

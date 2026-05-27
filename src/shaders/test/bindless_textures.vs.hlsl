@@ -52,7 +52,10 @@ VS_OUTPUT main(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
     float2 pos_world = pos_local * scale + InstPositions[instance_id];
     
     output.position = float4(pos_world, 0.0, 1.0);
+    output.uv_coord = Positions[idx] + float2(0.5, 0.5);
     output.colour = InstColours[instance_id];
+    
+    output.texture_id = instance_id;
 
     return output;
 }

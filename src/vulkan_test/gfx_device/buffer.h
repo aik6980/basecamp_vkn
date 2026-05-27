@@ -18,10 +18,11 @@ namespace VKN {
 		size_t m_size;
 	};
 
-	struct Image {
-		vk::Format		m_format;
+	struct Texture {
 		vk::Image		m_image;
 		vma::Allocation m_alloc;
+		
+		vk::Format		m_format;
 		vk::ImageView	m_view;
 	};
 

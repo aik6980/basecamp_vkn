@@ -85,7 +85,7 @@ void App::create_scene()
     auto&& gfx_device = Gfx_main::gfx_device();
 
     auto&& shader_manager = Gfx_main::shader_manager();
-    // auto&& resource_manager = gfx_device.m_resource_manager;
+    auto&& resource_manager = Gfx_main::resource_manager();
 
     // for each render passes
     auto&& colour_format                 = gfx_device.backbuffer_colour_format();
@@ -103,6 +103,10 @@ void App::create_scene()
     // create Textures
     auto texture_size = 64u;
     auto&& texdata    = TextureDataGenerator::create_checkerboard_texture(texture_size);
+    resource_manager.create_texture("t_checkerboard", texdata);
+
+    // create samplers
+    resource_manager.create_linear_wrap_sampler();
 
     // create mesh
     // resource_manager->create_mesh();

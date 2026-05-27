@@ -265,23 +265,36 @@ namespace VKN {
         collect_stage(ps);
 
         m_reflected_binding_map.clear();
+        m_descriptorset_layouts.clear();
+        m_descriptorset_infos.clear();
 
         if (!merged_sets.empty()) {
-            m_descriptorset_layouts.reserve(merged_sets.size());
-            m_descriptorset_infos.clear(); // no longer populated; kept for compatibility
 
-            uint32_t set_layout_index = 0;
+            uint32_t max_set_number = 0;
+            for (const auto& kv : merged_sets) {
+                max_set_number = std::max(max_set_number, kv.first);
+            }
+
+            m_descriptorset_layouts.resize(max_set_number + 1);
+
+            auto create_empty_layout = [&device]() {
+                vk::DescriptorSetLayoutCreateInfo ci{};
+                return device.createDescriptorSetLayout(ci);
+            };
+
+            for (uint32_t set = 0; set <= max_set_number; ++set) {
+                m_descriptorset_layouts[set] = create_empty_layout();
+            }
 
             for (auto& [set_number, merged] : merged_sets) {
                 std::vector<vk::DescriptorSetLayoutBinding> merged_bindings;
                 std::vector<vk::DescriptorBindingFlags> merged_flags;
-
                 merged_bindings.reserve(merged.entries.size());
                 merged_flags.reserve(merged.entries.size());
 
                 for (const auto& entry : merged.entries) {
-                    merged_bindings.emplace_back(entry.binding);
-                    merged_flags.emplace_back(entry.binding_flag);
+                    merged_bindings.push_back(entry.binding);
+                    merged_flags.push_back(entry.binding_flag);
                 }
 
                 vk::DescriptorSetLayoutBindingFlagsCreateInfo flags_info{
@@ -289,19 +302,20 @@ namespace VKN {
                     .pBindingFlags = merged_flags.data(),
                 };
 
-                vk::DescriptorSetLayoutCreateInfo set_create_info{
+                vk::DescriptorSetLayoutCreateInfo set_ci{
                     .pNext        = &flags_info,
                     .bindingCount = (uint32_t)merged_bindings.size(),
                     .pBindings    = merged_bindings.data(),
                 };
 
-                m_descriptorset_layouts.emplace_back(device.createDescriptorSetLayout(set_create_info));
+                device.destroyDescriptorSetLayout(m_descriptorset_layouts[set_number]);
+                m_descriptorset_layouts[set_number] = device.createDescriptorSetLayout(set_ci);
 
                 for (const auto& entry : merged.entries) {
                     Reflected_descriptor_binding new_binding{
                         .m_set_number       = set_number,
                         .m_binding_number   = entry.binding.binding,
-                        .m_set_layout_index = set_layout_index,
+                        .m_set_layout_index = set_number, // can be 0 I believed, only use for error checking
                         .m_descriptor_type  = entry.binding.descriptorType,
                         .m_descriptor_count = entry.binding.descriptorCount,
                     };
@@ -334,8 +348,7 @@ namespace VKN {
                         }
                     }
                 }
-
-                ++set_layout_index;
+                
             }
 
             vk::PipelineLayoutCreateInfo pipeline_layout_createinfo{

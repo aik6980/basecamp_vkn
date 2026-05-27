@@ -15,9 +15,9 @@ namespace VKN {
 
         void reset();
 
-        vk::DescriptorSet& create_descriptor_set(const vk::DescriptorSetLayout& layout);
+        vk::DescriptorSet& create_descriptor_set(const vk::DescriptorSetLayout& layout, uint32_t variable_descriptor_count);
 
-        vk::DescriptorPool             m_descriptor_pool;
+        vk::DescriptorPool m_descriptor_pool;
         std::vector<vk::DescriptorSet> m_descriptor_sets;
 
         static const uint32_t m_max_descriptor = 256;

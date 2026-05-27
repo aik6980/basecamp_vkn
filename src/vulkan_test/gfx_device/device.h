@@ -97,7 +97,7 @@ namespace VKN {
         vk::CommandBuffer m_single_use_command_buffer;
 
         // Resource manager
-        void destroy_resource(Image& resource);
+        void destroy_resource(Texture& resource);
 
         // Window
         HINSTANCE m_hinstance;
@@ -140,7 +140,7 @@ namespace VKN {
         vma::Allocator m_vma_allocator;
 
         // Buffer
-        Image m_depth_buffer;
+        Texture m_depth_buffer;
 
         // Syncronization
         const uint64_t m_fence_timeout = 100000000;
