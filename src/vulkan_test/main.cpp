@@ -54,7 +54,13 @@ HWND CreateMainWindow(HINSTANCE hInstance, int nCmdShow, const wstring& classNam
     windowRect.bottom += emptyRect.bottom - emptyRect.top;
 
     // Create the window and store a handle to it.
-    HWND hwnd = CreateWindowEx(NULL, className.c_str(), L"Win32Project", WS_OVERLAPPEDWINDOW, 0, 100, windowRect.right - windowRect.left,
+    HWND hwnd = CreateWindowEx(NULL,
+        className.c_str(),
+        L"Win32Project",
+        WS_OVERLAPPEDWINDOW,
+        0,
+        100,
+        windowRect.right - windowRect.left,
         windowRect.bottom - windowRect.top,
         NULL, // We have no parent window, NULL.
         NULL, // We aren't using menus, NULL.
@@ -72,36 +78,48 @@ int RunMainWindow(HINSTANCE hInstance, int nCmdShow)
     wstring winClassStr = RegisterWinClass(hInstance);
     // create window
     CRect dim(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-    HWND  hwnd = CreateMainWindow(hInstance, nCmdShow, winClassStr, dim);
+    HWND hwnd = CreateMainWindow(hInstance, nCmdShow, winClassStr, dim);
     // create app
     App app;
-    app.on_init(hInstance, hwnd);
 
-    // message loop
-    MSG msg = {0};
-    while (true) {
-        // Process any messages in the queue.
-        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
+    try {
+        app.on_init(hInstance, hwnd);
 
-            if (msg.message == WM_QUIT)
-                break;
+        // message loop
+        MSG msg = {0};
+        while (true) {
+            // Process any messages in the queue.
+            if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
 
-            // Pass events into our sample.
-            app.on_event_msg(msg);
+                if (msg.message == WM_QUIT)
+                    break;
+
+                // Pass events into our sample.
+                app.on_event_msg(msg);
+            }
+
+            app.on_update();
         }
 
-        app.on_update();
+        app.on_destroy();
+
+        // Return this part of the WM_QUIT message to Windows.
+        return static_cast<char>(msg.wParam);
     }
-
-    app.on_destroy();
-
-    // Return this part of the WM_QUIT message to Windows.
-    return static_cast<char>(msg.wParam);
+    catch (vk::SystemError& err) {
+        DBG::OutputString("vk::SystemError: %s\n", err.what());
+        return -1;
+    }
+    catch (std::exception& err) {
+        DBG::OutputString("std::exception: %s\n", err.what());
+        return -1;
+    }
+    catch (...) {
+        DBG::OutputString("unknown error\n");
+        return -1;
+    }
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
-{
-    return RunMainWindow(hInstance, nCmdShow);
-}
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) { return RunMainWindow(hInstance, nCmdShow); }

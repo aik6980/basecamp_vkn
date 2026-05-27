@@ -46,7 +46,7 @@ add_custom_command(TARGET ${PROJECT_NAME}
 
 # DXC compiling
 # https://simoncoenen.com/blog/programming/graphics/DxcCompiling	
-macro(Dxc_compile src_files dxc_path profile spirv_opt)
+macro(Dxc_compile src_files dxc_path profile spirv_opt auto_binding_space)
 	foreach(var ${src_files})
 		get_filename_component(file_wle ${var} NAME_WLE)
 		
@@ -59,7 +59,7 @@ macro(Dxc_compile src_files dxc_path profile spirv_opt)
 		add_custom_command(
 			OUTPUT ${OUTPUT_FILENAME}.obj ${OUTPUT_FILENAME}.asm
 			PRE_BUILD 
-			COMMAND ${dxc_path} -T ${profile} ${spirv_opt} -auto-binding-space 0 -Ni -Od -Fo ${OUTPUT_FILENAME}.obj -Fc ${OUTPUT_FILENAME}.asm -Zpr ${var}
+			COMMAND ${dxc_path} -T ${profile} ${spirv_opt} -auto-binding-space ${auto_binding_space} -Ni -Od -Fo ${OUTPUT_FILENAME}.obj -Fc ${OUTPUT_FILENAME}.asm -Zpr ${var}
 			#COMMAND echo Effect Compiler ${var}
 			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 			#MAIN_DEPENDENCY ${var}
@@ -70,10 +70,10 @@ macro(Dxc_compile src_files dxc_path profile spirv_opt)
 	endforeach(var)
 endmacro()
 
-Dxc_compile("${VS_FILES}" ${DXC} "vs_6_0" "")
-Dxc_compile("${PS_FILES}" ${DXC} "ps_6_0" "")
-Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" "")
-Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "")
+Dxc_compile("${VS_FILES}" ${DXC} "vs_6_0" "" 0) 
+Dxc_compile("${PS_FILES}" ${DXC} "ps_6_0" "" 1) # vs and ps shaders need to use separate register spaces for auto-binding, to avoid conflicts between them
+Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" "" 0)
+Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "" 0)
 
 func_group_src("${ALL_FILES}")
 
@@ -108,9 +108,9 @@ add_custom_command(TARGET ${PROJECT_NAME}
 set(SPIRV_OPTS "-spirv -fspv-target-env=\"vulkan1.1spirv1.4\"")
 message(${SPIRV_OPTS})
 
-Dxc_compile("${VS_FILES}" ${DXC} "vs_6_0" ${SPIRV_OPTS})
-Dxc_compile("${PS_FILES}" ${DXC} "ps_6_0" ${SPIRV_OPTS})
-Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" ${SPIRV_OPTS})
-Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" ${SPIRV_OPTS})
+Dxc_compile("${VS_FILES}" ${DXC} "vs_6_0" ${SPIRV_OPTS} 0)
+Dxc_compile("${PS_FILES}" ${DXC} "ps_6_0" ${SPIRV_OPTS} 1)
+Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" ${SPIRV_OPTS} 0)
+Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" ${SPIRV_OPTS} 0)
 
 func_group_src("${ALL_FILES}")

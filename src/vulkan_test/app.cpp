@@ -93,6 +93,7 @@ void App::create_scene()
     VKN::Targets_createinfo targets_info = {colour_format, depth_format};
     // create techniques
     shader_manager.register_technique("test/single_triangle", targets_info);
+    shader_manager.register_technique("test/constant_buffer", targets_info);
     shader_manager.register_technique("test/bindless_textures", targets_info);
 
     shader_manager.register_technique("t1",

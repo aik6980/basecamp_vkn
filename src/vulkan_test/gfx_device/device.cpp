@@ -476,30 +476,16 @@ namespace VKN {
         m_hinstance = hinstance;
         m_hwnd      = hwnd;
 
-        try {
-            // create_from_initialization_helper(); // retired code
-            create_from_vk_bootstrap();
+        // create_from_initialization_helper(); // retired code
+        create_from_vk_bootstrap();
 
-            create_vma_allocator();
-            create_command_buffer();
+        create_vma_allocator();
+        create_command_buffer();
 
-            create_descriptor_pool();
-            create_depth_buffer();
+        create_descriptor_pool();
+        create_depth_buffer();
 
-            create_sync_object();
-        }
-        catch (vk::SystemError& err) {
-            DBG::OutputString("vk::SystemError: %s\n", err.what());
-            exit(-1);
-        }
-        catch (std::exception& err) {
-            DBG::OutputString("std::exception: %s\n", err.what());
-            exit(-1);
-        }
-        catch (...) {
-            DBG::OutputString("unknown error\n");
-            exit(-1);
-        }
+        create_sync_object();
     }
 
     void Device::create_from_initialization_helper()
@@ -862,177 +848,6 @@ namespace VKN {
             frame_resource->m_descriptor_pool.create_pool();
         }
     }
-
-    // void Device::draw_once()
-    //{
-    //     auto&& image_available_semaphore = m_frame_resource[0]->m_image_available_semaphore;
-    //     auto&& inflight_fence            = m_frame_resource[0]->m_inflight_fence;
-    //
-    //     auto&& command_buffer = m_frame_resource[0]->m_command_buffer;
-    //
-    //     // Get the index of the next available swapchain image:
-    //     vk::ResultValue<uint32_t> current_buffer = m_device.acquireNextImageKHR(m_swapchain,
-    //     m_fence_timeout, image_available_semaphore, nullptr); assert(current_buffer.result ==
-    //     vk::Result::eSuccess); assert(current_buffer.value < m_frame_buffers.size());
-    //
-    //     command_buffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlags()));
-    //
-    //     std::array<vk::ClearValue, 2> clear_values;
-    //     clear_values[0].color        = vk::ClearColorValue(std::array<float, 4>({{0.2f, 0.2f,
-    //     0.2f, 0.2f}})); clear_values[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
-    //
-    //     auto&& r        = get_window_rect();
-    //     auto&& extent2d = vk::Extent2D(r.Width(), r.Height());
-    //
-    //     vk::RenderPassBeginInfo renderPassBeginInfo(
-    //         m_render_pass, m_frame_buffers[current_buffer.value], vk::Rect2D(vk::Offset2D(0, 0),
-    //         extent2d), clear_values);
-    //     command_buffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
-    //     command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
-    //     // m_command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout,
-    //     0, descriptorSet, nullptr);
-    //
-    //     // m_command_buffer.bindVertexBuffers(0, vertexBufferData.buffer, {0});
-    //     command_buffer.setViewport(0, vk::Viewport(0.0f, 0.0f,
-    //     static_cast<float>(extent2d.width), static_cast<float>(extent2d.height), 0.0f, 1.0f));
-    //     command_buffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), extent2d));
-    //
-    //     // m_command_buffer.draw(12 * 3, 1, 0, 0);
-    //     command_buffer.draw(3, 1, 0, 0);
-    //     command_buffer.endRenderPass();
-    //     command_buffer.end();
-    //
-    //     vk::PipelineStageFlags
-    //     wait_destination_stage_mask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
-    //     vk::SubmitInfo         submit_info(image_available_semaphore,
-    //     wait_destination_stage_mask, command_buffer);
-    //
-    //     vk::Queue graphics_queue = m_device.getQueue(m_graphics_queue_family_index, 0);
-    //     graphics_queue.submit(submit_info, inflight_fence);
-    //
-    //     while (vk::Result::eTimeout == m_device.waitForFences(inflight_fence, VK_TRUE,
-    //     m_fence_timeout)) {
-    //     };
-    //
-    //     vk::Queue  present_queue = m_device.getQueue(m_present_queue_family_index, 0);
-    //     vk::Result result        = present_queue.presentKHR(vk::PresentInfoKHR({}, m_swapchain,
-    //     current_buffer.value)); switch (result) { case vk::Result::eSuccess:
-    //         break;
-    //     case vk::Result::eSuboptimalKHR:
-    //         std::cout << "vk::Queue::presentKHR returned vk::Result::eSuboptimalKHR !\n";
-    //         break;
-    //     default:
-    //         assert(false); // an unexpected result is returned !
-    //     }
-    //     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    //
-    //     m_device.waitIdle();
-    // }
-
-    /*
-    void Device::draw()
-    {
-        begin_frame();
-
-        auto&& command_buffer = curr_command_buffer();
-        if (!command_buffer) {
-            return;
-        }
-
-        // setup render pass
-        auto&& render_target_image = backbuffer_colour_image();
-        auto&& depth_target_image  = m_depth_buffer.m_image;
-
-        transition_image_layout(render_target_image,
-            Transition_image_layout_info{
-                .dst_layout       = vk::ImageLayout::eColorAttachmentOptimal,
-                .src_layout       = vk::ImageLayout::eUndefined,
-                .dst_access_flags = vk::AccessFlagBits2::eColorAttachmentWrite,
-                .src_access_flags = vk::AccessFlagBits2::eNone,
-                .dst_stage_flags  = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .src_stage_flags  = vk::PipelineStageFlagBits2::eTopOfPipe,
-            });
-
-        vk::ClearColorValue clear_colour{{{0.2f, 0.2f, 0.2f, 0.2f}}};
-        vk::ClearDepthStencilValue clear_depth = {
-            .depth   = 1.0f,
-            .stencil = 0u,
-        };
-
-        vk::RenderingAttachmentInfo colour_attachment{
-            .imageView   = backbuffer_colour_image_view(),
-            .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-            .loadOp      = vk::AttachmentLoadOp::eClear,
-            .storeOp     = vk::AttachmentStoreOp::eStore,
-            .clearValue  = clear_colour,
-        };
-
-        vk::RenderingInfo rendering_info{
-            .renderArea =
-                {
-                    .offset = {0, 0},
-                    .extent = m_swapchain_image_size,
-                },
-            .layerCount           = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments    = &colour_attachment,
-
-        };
-
-        command_buffer->beginRendering(&rendering_info);
-
-        command_buffer->setViewport(0,
-            vk::Viewport(0.0f,
-                0.0f,
-                static_cast<float>(m_swapchain_image_size.width),
-                static_cast<float>(m_swapchain_image_size.height),
-                0.0f,
-                1.0f));
-        command_buffer->setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), m_swapchain_image_size));
-
-        auto&& t0 = m_shader_manager->get_technique("test/single_triangle").lock();
-        command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, t0->m_pipeline);
-        // m_command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0,
-        // descriptorSet, nullptr);
-
-        // command_buffer.bindVertexBuffers(0, 0, nullptr, nullptr);
-
-        // m_command_buffer.draw(12 * 3, 1, 0, 0);
-        command_buffer->draw(3, 1, 0, 0);
-
-        // 2nd draw
-        auto&& technique          = m_shader_manager->get_technique("t1").lock();
-        auto&& technique_instance = Technique_instance(*technique);
-        float data[]              = {4.0f, 1.0f};
-        technique_instance.set_constant("Data_cbv", data, sizeof(data));
-
-        command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
-        technique_instance.set_descriptor_set_parameters();
-
-        command_buffer->bindVertexBuffers(0, m_resource_manager->m_vertex_buffer.m_buffer, {0});
-        command_buffer->bindIndexBuffer(m_resource_manager->m_index_buffer.m_buffer, 0, vk::IndexType::eUint32);
-
-        command_buffer->drawIndexed(36, 1, 0, 0, 0);
-
-        command_buffer->endRendering();
-
-        transition_image_layout(render_target_image,
-            Transition_image_layout_info{
-                .dst_layout       = vk::ImageLayout::ePresentSrcKHR,
-                .src_layout       = vk::ImageLayout::eColorAttachmentOptimal,
-                .dst_access_flags = vk::AccessFlagBits2::eNone,
-                .src_access_flags = vk::AccessFlagBits2::eColorAttachmentWrite,
-                .dst_stage_flags  = vk::PipelineStageFlagBits2::eBottomOfPipe,
-                .src_stage_flags  = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-            });
-
-        end_frame();
-
-        // update display window title
-        // auto title_str = DBG::Format(L"Current frame number: %d", m_frame_count);
-        // SetWindowText(m_hwnd, title_str.c_str());
-    }
-    */
 
     void Device::load_resources() {}
 

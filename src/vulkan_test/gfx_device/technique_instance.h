@@ -11,9 +11,8 @@ namespace VKN {
         {
         }
 
-        void set_constant(const std::string name, const void* data, size_t size);
-
-        void set_descriptor_set_parameters();
+        bool bind_constant_by_name(const std::string& reflected_name, const void* data, size_t size);
+        bool apply();
 
         Technique& m_tech;
 

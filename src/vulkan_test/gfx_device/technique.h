@@ -17,6 +17,14 @@ namespace VKN {
         vk::Format m_depth_format  = vk::Format::eUndefined;
     };
 
+    struct Reflected_descriptor_binding {
+        uint32_t m_set_number       = 0;
+        uint32_t m_binding_number   = 0;
+        uint32_t m_set_layout_index = 0; // index used when binding in pipeline layout
+        vk::DescriptorType m_descriptor_type {};
+        uint32_t m_descriptor_count = 0;
+    };
+
     class Technique {
 
       public:
@@ -29,6 +37,7 @@ namespace VKN {
 
         void create_pipeline(vk::Format color_format, vk::Format depth_format);
 
+        const Reflected_descriptor_binding* find_binding(const std::string& reflected_name) const;
       public:
         Device& m_gfx_device;
 
@@ -37,6 +46,8 @@ namespace VKN {
 
         std::vector<vk::DescriptorSetLayout> m_descriptorset_layouts;
         std::vector<Descriptorset_layoutdata*> m_descriptorset_infos;
+
+        std::unordered_map<std::string, Reflected_descriptor_binding> m_reflected_binding_map;
 
         vk::PipelineLayout m_pipeline_layout;
         vk::Pipeline m_pipeline;
