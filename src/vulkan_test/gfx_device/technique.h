@@ -21,7 +21,7 @@ namespace VKN {
         uint32_t m_set_number       = 0;
         uint32_t m_binding_number   = 0;
         uint32_t m_set_layout_index = 0; // index used when binding in pipeline layout
-        vk::DescriptorType m_descriptor_type {};
+        vk::DescriptorType m_descriptor_type{};
         uint32_t m_descriptor_count = 0;
     };
 
@@ -38,6 +38,7 @@ namespace VKN {
         void create_pipeline(vk::Format color_format, vk::Format depth_format);
 
         const Reflected_descriptor_binding* find_binding(const std::string& reflected_name) const;
+
       public:
         Device& m_gfx_device;
 
@@ -53,6 +54,9 @@ namespace VKN {
         vk::Pipeline m_pipeline;
 
         inline static const std::string ENTRY_POINT = "main";
+
+      private:
+        void create_descriptor_pipeline_layout(const Shader& vs, const Shader& ps);
     };
 
 } // namespace VKN

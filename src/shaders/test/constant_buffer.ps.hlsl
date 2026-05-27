@@ -7,7 +7,7 @@ struct PSData
 {
     float3 color;
 };
-ConstantBuffer<PSData> PsData_cbv : register(space0);
+ConstantBuffer<PSData> PsData_cbv;
  
 float4 main(PS_INPUT input) : SV_Target0
 {
