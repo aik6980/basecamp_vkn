@@ -1,7 +1,5 @@
 #include "technique_instance.h"
 
-#include <deque>
-
 #include "device.h"
 #include "resource_manager.h"
 #include "shader.h"
@@ -63,29 +61,7 @@ namespace VKN {
         return true;
     }
 
-    bool Technique_instance::apply()
-    {
-        auto&& device          = m_tech.m_gfx_device.m_device;
-        auto&& frame_resource  = m_tech.m_gfx_device.curr_frame_resource();
-        auto&& descriptor_pool = frame_resource.m_descriptor_pool;
-        auto&& command_buffer  = frame_resource.m_command_buffer;
-
-        // Use to fetch persistent textures and samplers when binding.
-        auto&& resource_manager = m_tech.m_gfx_device.m_resource_manager;
-
-        // scans m_sampled_image_array_map and computes, per set layout index, how many sampled-image descriptors you
-        // actually need to allocate.
-        // This is needed because bindless uses variable descriptor count, and that count is passed at descriptor set
-        // allocation time.
-        std::unordered_map<uint32_t, uint32_t> variable_count_by_set_index;
-        for (const auto& [reflected_name, texture_names] : m_sampled_image_array_map) {
-            const auto* reflected = m_tech.find_binding(reflected_name);
-            if (!reflected) {
-                return false;
-            }
-            variable_count_by_set_index[reflected->m_set_layout_index] = std::max(
-                variable_count_by_set_index[reflected->m_set_layout_index], static_cast<uint32_t>(texture_names.size()));
-        }
+    namespace {
 
         enum class Pending_write_kind { Buffer, Image };
 
@@ -105,51 +81,94 @@ namespace VKN {
             std::vector<vk::WriteDescriptorSet> writes;
         };
 
+        struct Set_stats {
+            uint32_t variable_descriptor_count = 0;
+            uint32_t total_image_infos         = 0;
+        };
+
+        const Reflected_descriptor_binding* find_binding_checked(
+            const Technique& tech, const std::string& reflected_name, vk::DescriptorType expected_type)
+        {
+            const auto* reflected = tech.find_binding(reflected_name);
+            if (!reflected) {
+                return nullptr;
+            }
+            if (reflected->m_descriptor_type != expected_type) {
+                return nullptr;
+            }
+            return reflected;
+        }
+
+        bool build_set_stats(const Technique_instance& inst, std::unordered_map<uint32_t, Set_stats>& stats_by_set_index)
+        {
+            for (const auto& [reflected_name, texture_names] : inst.m_sampled_image_array_map) {
+                const auto* reflected = find_binding_checked(inst.m_tech, reflected_name, vk::DescriptorType::eSampledImage);
+                if (!reflected) {
+                    return false;
+                }
+
+                auto& stats = stats_by_set_index[reflected->m_set_layout_index];
+                stats.variable_descriptor_count =
+                    std::max(stats.variable_descriptor_count, static_cast<uint32_t>(texture_names.size()));
+                stats.total_image_infos += static_cast<uint32_t>(texture_names.size());
+            }
+
+            for (const auto& [reflected_name, sampler_name] : inst.m_sampler_map) {
+                (void)sampler_name;
+                const auto* reflected = find_binding_checked(inst.m_tech, reflected_name, vk::DescriptorType::eSampler);
+                if (!reflected) {
+                    return false;
+                }
+
+                auto& stats = stats_by_set_index[reflected->m_set_layout_index];
+                stats.total_image_infos += 1u;
+            }
+
+            return true;
+        }
+
+    } // namespace
+
+    bool Technique_instance::apply()
+    {
+        auto&& device           = m_tech.m_gfx_device.m_device;
+        auto&& frame_resource   = m_tech.m_gfx_device.curr_frame_resource();
+        auto&& descriptor_pool  = frame_resource.m_descriptor_pool;
+        auto&& command_buffer   = frame_resource.m_command_buffer;
+        auto&& resource_manager = m_tech.m_gfx_device.m_resource_manager;
+
+        std::unordered_map<uint32_t, Set_stats> stats_by_set_index;
+        if (!build_set_stats(*this, stats_by_set_index)) {
+            return false;
+        }
+
         std::unordered_map<uint32_t, Pending_set> pending_by_set_index;
 
-        // Pre-reserve image capacity per set before building plans (important for pointer stability once pass 2 starts).
-        std::unordered_map<uint32_t, uint32_t> total_image_infos_by_set;
-
-        for (const auto& [reflected_name, texture_names] : m_sampled_image_array_map) {
-            const auto* reflected = m_tech.find_binding(reflected_name);
-            if (!reflected) {
-                return false;
-            }
-            total_image_infos_by_set[reflected->m_set_layout_index] += static_cast<uint32_t>(texture_names.size());
-        }
-        for (const auto& [reflected_name, sampler_name] : m_sampler_map) {
-            const auto* reflected = m_tech.find_binding(reflected_name);
-            if (!reflected) {
-                return false;
-            }
-            total_image_infos_by_set[reflected->m_set_layout_index] += 1u;
-        }
-
-        // Pass 1: collect infos and plans only. Do not set pBufferInfo or pImageInfo here.
         auto ensure_set_allocated = [&](uint32_t set_layout_index, uint32_t fallback_variable_count) -> Pending_set& {
             auto& pending = pending_by_set_index[set_layout_index];
-            if (!pending.descriptor_set) {
-                uint32_t variable_count = fallback_variable_count;
-                auto it                 = variable_count_by_set_index.find(set_layout_index);
-                if (it != variable_count_by_set_index.end()) {
-                    variable_count = it->second;
-                }
-
-                pending.descriptor_set =
-                    descriptor_pool.create_descriptor_set(m_tech.m_descriptorset_layouts[set_layout_index], variable_count);
-
-                auto img_it = total_image_infos_by_set.find(set_layout_index);
-                if (img_it != total_image_infos_by_set.end()) {
-                    pending.image_infos.reserve(img_it->second);
-                }
+            if (pending.descriptor_set) {
+                return pending;
             }
+
+            uint32_t variable_count = fallback_variable_count;
+            auto stats_it           = stats_by_set_index.find(set_layout_index);
+            if (stats_it != stats_by_set_index.end() && stats_it->second.variable_descriptor_count > 0) {
+                variable_count = stats_it->second.variable_descriptor_count;
+            }
+
+            pending.descriptor_set =
+                descriptor_pool.create_descriptor_set(m_tech.m_descriptorset_layouts[set_layout_index], variable_count);
+
+            if (stats_it != stats_by_set_index.end() && stats_it->second.total_image_infos > 0) {
+                pending.image_infos.reserve(stats_it->second.total_image_infos);
+            }
+
             return pending;
         };
 
-        // Uniform buffers
         for (const auto& [reflected_name, weak_buffer] : m_constant_buffer_map) {
-            const auto* reflected = m_tech.find_binding(reflected_name);
-            if (!reflected || reflected->m_descriptor_type != vk::DescriptorType::eUniformBuffer) {
+            const auto* reflected = find_binding_checked(m_tech, reflected_name, vk::DescriptorType::eUniformBuffer);
+            if (!reflected) {
                 return false;
             }
 
@@ -176,10 +195,9 @@ namespace VKN {
             });
         }
 
-        // Sampled image arrays
         for (const auto& [reflected_name, texture_names] : m_sampled_image_array_map) {
-            const auto* reflected = m_tech.find_binding(reflected_name);
-            if (!reflected || reflected->m_descriptor_type != vk::DescriptorType::eSampledImage) {
+            const auto* reflected = find_binding_checked(m_tech, reflected_name, vk::DescriptorType::eSampledImage);
+            if (!reflected) {
                 return false;
             }
             if (texture_names.empty()) {
@@ -207,10 +225,9 @@ namespace VKN {
             });
         }
 
-        // Samplers
         for (const auto& [reflected_name, sampler_name] : m_sampler_map) {
-            const auto* reflected = m_tech.find_binding(reflected_name);
-            if (!reflected || reflected->m_descriptor_type != vk::DescriptorType::eSampler) {
+            const auto* reflected = find_binding_checked(m_tech, reflected_name, vk::DescriptorType::eSampler);
+            if (!reflected) {
                 return false;
             }
 
@@ -233,7 +250,6 @@ namespace VKN {
             });
         }
 
-        // Pass 2: build Vk writes from finalized vectors, then update once per set.
         for (auto& [set_layout_index, pending] : pending_by_set_index) {
             (void)set_layout_index;
 
@@ -264,7 +280,6 @@ namespace VKN {
             }
         }
 
-        // Bind sets. The pipeline layout ensures correct set indices and push constant ranges, so we don't need to care about them here.
         for (const auto& [set_layout_index, pending] : pending_by_set_index) {
             command_buffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics, m_tech.m_pipeline_layout, set_layout_index, pending.descriptor_set, {});
