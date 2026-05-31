@@ -256,7 +256,7 @@ vector<PC_vertex> MeshDataGenerator::to_p1c1(const Mesh_vertex_array& vertex_arr
 
 //////////////////////////////////////////////////////////////////////////
 
-TextureData TextureDataGenerator::create_checkerboard_texture(int texture_width)
+TextureData TextureDataGenerator::create_checkerboard_texture(int texture_width, const XMCOLOR& colour1, const XMCOLOR& colour2)
 {
     TextureData texture_data;
     texture_data.reset(texture_width, texture_width);
@@ -265,11 +265,19 @@ TextureData TextureDataGenerator::create_checkerboard_texture(int texture_width)
         for (int col = 0; col < texture_width; col++) {
             // Each cell is 8x8, value is 0 or 1 (black or white)
             value = (((row & 0x8) == 0) ^ ((col & 0x8) == 0)) * 1.0f;
-            XMCOLOR colour(value, value, value, 1.0f);
+
+            XMCOLOR colour = (value == 0.0f) ? colour1 : colour2;
             texture_data.set_data(row, col, colour);
         }
     }
 
+    return texture_data;
+}
+
+TextureData TextureDataGenerator::create_checkerboard_texture_default(int texture_width)
+{
+    TextureData texture_data;
+    texture_data = create_checkerboard_texture(texture_width, XMCOLOR(1.0f, 1.0f, 1.0f, 1.0f), XMCOLOR(0.0f, 0.0f, 0.0f, 1.0f)); 
     return texture_data;
 }
 

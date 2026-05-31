@@ -17,7 +17,8 @@ class MeshDataGenerator {
 
 class TextureDataGenerator {
   public:
-    static TextureData create_checkerboard_texture(int texture_width);
+    static TextureData create_checkerboard_texture(int texture_width, const XMCOLOR& colour1, const XMCOLOR& colour2);
+    static TextureData create_checkerboard_texture_default(int texture_width);
     static TextureData create_solid_texture(int texture_width, const XMCOLOR& colour);
     static TextureData create_gradient_texture(int texture_width);
     static TextureData create_strip_texture(int texture_width);

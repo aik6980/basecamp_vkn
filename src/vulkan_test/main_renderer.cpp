@@ -82,6 +82,9 @@ void Main_renderer::draw()
 
         std::vector<std::string> bindless_textures = {
             "t_checkerboard",
+            "t_checkerboard_redblue",
+            "t_checkerboard_redgreen",
+            "t_checkerboard_greenblue",
         };
 
         const bool textures_ok = technique_instance.bind_sampled_images_by_name("Textures_srv", bindless_textures);
@@ -90,7 +93,7 @@ void Main_renderer::draw()
         command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
         const bool apply_ok = textures_ok && sampler_ok && technique_instance.apply();
         assert(apply_ok);
-
+        
         command_buffer->draw(6, 4, 0, 0);
     }
 

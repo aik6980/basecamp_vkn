@@ -102,8 +102,12 @@ void App::create_scene()
 
     // create Textures
     auto texture_size = 64u;
-    auto&& texdata    = TextureDataGenerator::create_checkerboard_texture(texture_size);
+    auto&& texdata    = TextureDataGenerator::create_checkerboard_texture_default(texture_size);
     resource_manager.create_texture("t_checkerboard", texdata);
+
+    resource_manager.create_texture("t_checkerboard_redblue", TextureDataGenerator::create_checkerboard_texture(texture_size, XMCOLOR(1.0f, 0.0f, 0.0f, 1.0f), XMCOLOR(0.0f, 0.0f, 1.0f, 1.0f)));
+    resource_manager.create_texture("t_checkerboard_redgreen", TextureDataGenerator::create_checkerboard_texture(texture_size, XMCOLOR(1.0f, 0.0f, 0.0f, 1.0f), XMCOLOR(0.0f, 1.0f, 0.0f, 1.0f)));
+    resource_manager.create_texture("t_checkerboard_greenblue", TextureDataGenerator::create_checkerboard_texture(texture_size, XMCOLOR(0.0f, 1.0f, 0.0f, 1.0f), XMCOLOR(0.0f, 0.0f, 1.0f, 1.0f)));
 
     // create samplers
     resource_manager.create_linear_wrap_sampler();

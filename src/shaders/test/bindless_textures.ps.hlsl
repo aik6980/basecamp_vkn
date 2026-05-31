@@ -16,7 +16,7 @@ float4 main(PS_INPUT input) : SV_Target0
 {
     //return float4(input.colour, 0.0);
     
-    uint safe_id = min(input.texture_id, 0u);
+    uint safe_id = min(input.texture_id, 3u);
     float3 tex_color = Textures_srv[safe_id].Sample(Linear_sam, input.uv_coord).rgb;
     return float4(tex_color, 1.0);
     
