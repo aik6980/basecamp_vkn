@@ -96,9 +96,11 @@ void App::create_scene()
     shader_manager.register_technique("test/constant_buffer", targets_info);
     shader_manager.register_technique("test/bindless_textures", targets_info);
 
+    #if 0
     shader_manager.register_technique("t1",
         VKN::Technique_createinfo{.m_vs_name = "hello_triangle_mesh.vs", .m_ps_name = "hello_triangle.ps"},
         targets_info);
+    #endif
 
     // create Textures
     auto texture_size = 64u;

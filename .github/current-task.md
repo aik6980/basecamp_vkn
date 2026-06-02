@@ -13,8 +13,8 @@ Validate type compatibility: CBV, SRV, UAV, Sampler
 Bindless Scope -done
 
 Descriptor array binding by reflected name - done
-Variable descriptor count support
-Partially bound descriptor arrays
+Variable descriptor count support - done
+Partially bound descriptor arrays - done
 Validation-safe indexing and descriptor writes
 
 Done Criteria

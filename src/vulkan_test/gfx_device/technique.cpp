@@ -33,9 +33,9 @@ namespace VKN {
         // Programable state -----------
         std::array<vk::PipelineShaderStageCreateInfo, 2> pipeline_shader_stage_createinfo = {
             vk::PipelineShaderStageCreateInfo{
-                .stage = vk::ShaderStageFlagBits::eVertex, .module = vs->m_shader_module, .pName = "main"},
+                .stage = vk::ShaderStageFlagBits::eVertex, .module = vs->m_shader_module, .pName = "vsmain"},
             vk::PipelineShaderStageCreateInfo{
-                .stage = vk::ShaderStageFlagBits::eFragment, .module = ps->m_shader_module, .pName = "main"}};
+                .stage = vk::ShaderStageFlagBits::eFragment, .module = ps->m_shader_module, .pName = "psmain"}};
 
         vk::PipelineVertexInputStateCreateInfo pipeline_vertex_input_state_createinfo;
         if (vs->m_vertex_input_attribute_descriptions.size() > 0) {

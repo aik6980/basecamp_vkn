@@ -1,36 +1,29 @@
 file(GLOB_RECURSE ALL_FILES "*.hlsl" "*.h")
 file(GLOB_RECURSE CS_FILES "*.cs.hlsl")
-# for raster shaders
-file(GLOB_RECURSE RAS_FILES "*.ras.hlsl") 
+file(GLOB_RECURSE VS_FILES "*.vs.hlsl")
+file(GLOB_RECURSE PS_FILES "*.ps.hlsl")
 file(GLOB_RECURSE RAY_FILES "*.ray.hlsl")
 file(GLOB_RECURSE INC_FILES "*.inc.hlsl")
 
 set(PROJECT_NAME shader_hlsl)
 project(${PROJECT_NAME})
 
-
-
-macro(Gen_output_files src_files stage_suffix)
-	foreach(var ${src_files})
+macro(Gen_output_files)
+	foreach(var ${ALL_FILES})
 		get_filename_component(file_wle ${var} NAME_WLE)
-		get_filename_component(file_wle ${file_wle} NAME_WLE)
 		get_filename_component(file_dir ${var} DIRECTORY)
-		
 		file(RELATIVE_PATH rel_dir "${CMAKE_CURRENT_SOURCE_DIR}" "${file_dir}")
 
 		cmake_path(APPEND OUTPUT_FILENAME ${EXECUTABLE_OUTPUT_PATH} ${PROJECT_NAME} ${rel_dir} ${file_wle})
 		#message(" TEST ${OUTPUT_FILENAME_TEST}")
 
 		#set(OUTPUT_FILENAME ${EXECUTABLE_OUTPUT_PATH}/${PROJECT_NAME}/${file_wle})
-		list(APPEND OUTPUT_FILES ${OUTPUT_FILENAME}.${stage_suffix}.obj ${OUTPUT_FILENAME}.${stage_suffix}.asm)
+		list(APPEND OUTPUT_FILES ${OUTPUT_FILENAME}.obj ${OUTPUT_FILENAME}.asm)
 	endforeach(var)
 endmacro()
 
 set(OUTPUT_FILES)
-Gen_output_files("${RAS_FILES}" "vs")
-Gen_output_files("${RAS_FILES}" "ps")
-Gen_output_files("${CS_FILES}" "cs")
-Gen_output_files("${RAY_FILES}" "ray")
+Gen_output_files()
 message(${OUTPUT_FILES})
 
 add_custom_target(${PROJECT_NAME} SOURCES ${ALL_FILES} DEPENDS ${OUTPUT_FILES})
@@ -53,12 +46,10 @@ add_custom_command(TARGET ${PROJECT_NAME}
 
 # DXC compiling
 # https://simoncoenen.com/blog/programming/graphics/DxcCompiling	
-macro(Dxc_compile src_files dxc_path profile entry_point stage_suffix spirv_opt)
+macro(Dxc_compile src_files dxc_path profile spirv_opt auto_binding_space)
 	foreach(var ${src_files})
 		get_filename_component(file_wle ${var} NAME_WLE)
-		# remove .ras extension for raster shaders, replace with .vs/.ps depending on the profile
-		get_filename_component(file_wle ${file_wle} NAME_WLE)
-
+		
 		get_filename_component(file_dir ${var} DIRECTORY)
 		file(RELATIVE_PATH rel_dir "${CMAKE_CURRENT_SOURCE_DIR}" "${file_dir}")
 		cmake_path(APPEND OUTPUT_FILENAME ${EXECUTABLE_OUTPUT_PATH} ${PROJECT_NAME} ${rel_dir} ${file_wle})
@@ -66,23 +57,23 @@ macro(Dxc_compile src_files dxc_path profile entry_point stage_suffix spirv_opt)
 		#set(OUTPUT_FILENAME ${EXECUTABLE_OUTPUT_PATH}/${PROJECT_NAME}/${file_wle})
 		
 		add_custom_command(
-			OUTPUT ${OUTPUT_FILENAME}.${stage_suffix}.obj ${OUTPUT_FILENAME}.${stage_suffix}.asm 
-			COMMAND ${dxc_path} -T ${profile} -E ${entry_point} ${spirv_opt} -Ni -Od -Fo ${OUTPUT_FILENAME}.${stage_suffix}.obj -Fc ${OUTPUT_FILENAME}.${stage_suffix}.asm -Zpr ${var}
+			OUTPUT ${OUTPUT_FILENAME}.obj ${OUTPUT_FILENAME}.asm
+			PRE_BUILD 
+			COMMAND ${dxc_path} -T ${profile} ${spirv_opt} -auto-binding-space ${auto_binding_space} -Ni -Od -Fo ${OUTPUT_FILENAME}.obj -Fc ${OUTPUT_FILENAME}.asm -Zpr ${var}
 			#COMMAND echo Effect Compiler ${var}
 			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 			#MAIN_DEPENDENCY ${var}
 			DEPENDS ${var}
-			COMMENT "DXC Compile... ${var} -> ${OUTPUT_FILENAME}.${stage_suffix}.obj"
+			COMMENT "Effect Compiler ${dxc_path} ${var}"
 			)
 		#message(${FXC} /T "vs_5_0" /Ni /Od /Fo ${OUTPUT_FILENAME}.obj /Fc ${OUTPUT_FILENAME}.asm ${var} WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 	endforeach(var)
 endmacro()
 
-# Disable DX12 Compile path for now
-#Dxc_compile("${VS_FILES}" ${DXC} "vs_6_0" "" 0) 
-#Dxc_compile("${PS_FILES}" ${DXC} "ps_6_0" "" 1) # vs and ps shaders need to use separate register spaces for auto-binding, to avoid conflicts between them
-#Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" "" 0)
-#Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "" 0)
+Dxc_compile("${VS_FILES}" ${DXC} "vs_6_0" "" 0) 
+Dxc_compile("${PS_FILES}" ${DXC} "ps_6_0" "" 1) # vs and ps shaders need to use separate register spaces for auto-binding, to avoid conflicts between them
+Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" "" 0)
+Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "" 0)
 
 func_group_src("${ALL_FILES}")
 
@@ -92,10 +83,7 @@ set(PROJECT_NAME shader_spirv)
 project(${PROJECT_NAME})
 
 set(OUTPUT_FILES)
-Gen_output_files("${RAS_FILES}" "vs")
-Gen_output_files("${RAS_FILES}" "ps")
-Gen_output_files("${CS_FILES}" "cs")
-Gen_output_files("${RAY_FILES}" "ray")
+Gen_output_files()
 message(${OUTPUT_FILES})
 
 add_custom_target(${PROJECT_NAME} SOURCES ${ALL_FILES} DEPENDS ${OUTPUT_FILES})
@@ -120,9 +108,9 @@ add_custom_command(TARGET ${PROJECT_NAME}
 set(SPIRV_OPTS "-spirv -fspv-target-env=\"vulkan1.1spirv1.4\"")
 message(${SPIRV_OPTS})
 
-Dxc_compile("${RAS_FILES}" ${DXC} "vs_6_0" "vsmain" "vs" ${SPIRV_OPTS} )
-Dxc_compile("${RAS_FILES}" ${DXC} "ps_6_0" "psmain" "ps" ${SPIRV_OPTS} )
-Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" "csmain" "cs" ${SPIRV_OPTS} )
-Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "raymain" "ray" ${SPIRV_OPTS} )
+Dxc_compile("${VS_FILES}" ${DXC} "vs_6_0" ${SPIRV_OPTS} 0)
+Dxc_compile("${PS_FILES}" ${DXC} "ps_6_0" ${SPIRV_OPTS} 1)
+Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" ${SPIRV_OPTS} 0)
+Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" ${SPIRV_OPTS} 0)
 
 func_group_src("${ALL_FILES}")

@@ -1,4 +1,9 @@
+// Shader Resource collection
+SamplerState Linear_sam : register(s0);
+// bindless has to be placed at the last binding slots on the set (or space), in this case space0
+Texture2D Textures_srv[] : register(t1);
 
+// VS 
 struct VS_OUTPUT
 {
     float4 position : SV_Position;
@@ -41,7 +46,7 @@ static const float3 InstColours[] =
     float3(1.0, 0.0, 1.0),
 };
 
-VS_OUTPUT main(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
+VS_OUTPUT vsmain(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
 {
     VS_OUTPUT output;
     
@@ -58,4 +63,21 @@ VS_OUTPUT main(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
     output.texture_id = instance_id;
 
     return output;
+}
+
+// PS
+struct PS_INPUT
+{
+    float4 position : SV_Position;
+    float3 colour : Colour;
+    float2 uv_coord : Texcoord0;
+    uint texture_id : Texcoord1;
+};
+ 
+float4 psmain(PS_INPUT input) : SV_Target0
+{
+    uint safe_id = min(input.texture_id, 3u);
+    float3 tex_color = Textures_srv[safe_id].Sample(Linear_sam, input.uv_coord).rgb;
+    return float4(tex_color, 1.0);
+    
 }

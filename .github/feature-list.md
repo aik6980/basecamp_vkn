@@ -16,6 +16,7 @@ See current-task.md for active implementation scope
 - Dynamic rendering path.
 - Shader compilation/loading pipeline (HLSL to target shader formats).
 - Basic resource management (buffers/images via allocator).
+- Support a simple case of bindless texture
 
 ## Planned Features
 - Camera system improvements.
