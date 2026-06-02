@@ -5,11 +5,6 @@ file(GLOB_RECURSE RAS_FILES "*.ras.hlsl")
 file(GLOB_RECURSE RAY_FILES "*.ray.hlsl")
 file(GLOB_RECURSE INC_FILES "*.inc.hlsl")
 
-set(PROJECT_NAME shader_hlsl)
-project(${PROJECT_NAME})
-
-
-
 macro(Gen_output_files src_files stage_suffix)
 	foreach(var ${src_files})
 		get_filename_component(file_wle ${var} NAME_WLE)
@@ -25,31 +20,6 @@ macro(Gen_output_files src_files stage_suffix)
 		list(APPEND OUTPUT_FILES ${OUTPUT_FILENAME}.${stage_suffix}.obj ${OUTPUT_FILENAME}.${stage_suffix}.asm)
 	endforeach(var)
 endmacro()
-
-set(OUTPUT_FILES)
-Gen_output_files("${RAS_FILES}" "vs")
-Gen_output_files("${RAS_FILES}" "ps")
-Gen_output_files("${CS_FILES}" "cs")
-Gen_output_files("${RAY_FILES}" "ray")
-message(${OUTPUT_FILES})
-
-add_custom_target(${PROJECT_NAME} SOURCES ${ALL_FILES} DEPENDS ${OUTPUT_FILES})
-set_source_files_properties(${ALL_FILES} PROPERTIES VS_TOOL_OVERRIDE "None")
-
-#find_program(FXC fxc
-#	PATHS "$ENV{PROGRAMFILES\(X86\)}/Windows Kits/10/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64")
-set(DXC "${CMAKE_SOURCE_DIR}/ext/dxc/dxc.exe")
-
-file(MAKE_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/${PROJECT_NAME})
-
-add_custom_command(TARGET ${PROJECT_NAME}
-		PRE_BUILD 
-		COMMAND del *.* /q
-		COMMAND echo Cleaning files
-		WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/${PROJECT_NAME}
-		VERBATIM
-		)
-#message("Cleaning files{\"\\n\", s8b}")
 
 # DXC compiling
 # https://simoncoenen.com/blog/programming/graphics/DxcCompiling	
@@ -78,11 +48,41 @@ macro(Dxc_compile src_files dxc_path profile entry_point stage_suffix spirv_opt)
 	endforeach(var)
 endmacro()
 
-# Disable DX12 Compile path for now
-#Dxc_compile("${VS_FILES}" ${DXC} "vs_6_0" "" 0) 
-#Dxc_compile("${PS_FILES}" ${DXC} "ps_6_0" "" 1) # vs and ps shaders need to use separate register spaces for auto-binding, to avoid conflicts between them
-#Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" "" 0)
-#Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "" 0)
+set(PROJECT_NAME shader_dxil)
+project(${PROJECT_NAME})
+
+set(OUTPUT_FILES)
+Gen_output_files("${RAS_FILES}" "vs")
+Gen_output_files("${RAS_FILES}" "ps")
+Gen_output_files("${CS_FILES}" "cs")
+Gen_output_files("${RAY_FILES}" "ray")
+message(${OUTPUT_FILES})
+
+add_custom_target(${PROJECT_NAME} SOURCES ${ALL_FILES} DEPENDS ${OUTPUT_FILES})
+set_source_files_properties(${ALL_FILES} PROPERTIES VS_TOOL_OVERRIDE "None")
+
+#find_program(FXC fxc
+#	PATHS "$ENV{PROGRAMFILES\(X86\)}/Windows Kits/10/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64")
+#set(DXC "${CMAKE_SOURCE_DIR}/ext/dxc/dxc.exe")
+# use dxc from the Vulkan SDK, which is more up to date than the one in Windows SDK
+find_package(Vulkan)
+set(DXC "${Vulkan_INCLUDE_DIRS}/../bin/dxc.exe")
+
+file(MAKE_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/${PROJECT_NAME})
+
+add_custom_command(TARGET ${PROJECT_NAME}
+		PRE_BUILD 
+		COMMAND del *.* /q
+		COMMAND echo Cleaning files
+		WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/${PROJECT_NAME}
+		VERBATIM
+		)
+#message("Cleaning files{\"\\n\", s8b}")
+
+Dxc_compile("${RAS_FILES}" ${DXC} "vs_6_0" "vsmain" "vs" "")
+Dxc_compile("${RAS_FILES}" ${DXC} "ps_6_0" "psmain" "ps" "")
+Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" "csmain" "cs" "")
+Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "raymain" "ray" "")
 
 func_group_src("${ALL_FILES}")
 
