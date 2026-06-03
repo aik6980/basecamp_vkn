@@ -23,12 +23,35 @@ namespace VKN {
         m_reflected_binding_map.clear();
     }
 
+    void Technique::create_compute_pipeline()
+    {
+        auto&& device = m_gfx_device.m_device;
+
+        auto&& cs = m_cs_handle.lock();
+
+        // Programable state -----------
+        vk::PipelineShaderStageCreateInfo pipeline_shader_stage_createinfo{
+            .stage = vk::ShaderStageFlagBits::eCompute, .module = cs->m_shader_module, .pName = "csmain"};
+
+        // Create a pipeline layout from Shader stages
+        // Descriptor set layout + reflected binding map + pipeline layout
+        create_descriptor_pipeline_layout();
+        // ----------
+
+        vk::ComputePipelineCreateInfo compute_pipeline_create_info{
+            .stage  = pipeline_shader_stage_createinfo,
+            .layout = m_pipeline_layout,
+        };
+
+        m_pipeline = device.createComputePipeline({}, compute_pipeline_create_info).value;
+    }
+
     void Technique::create_pipeline(vk::Format color_format, vk::Format depth_format)
     {
         auto&& device = m_gfx_device.m_device;
 
-        auto&& vs = mh_vs.lock();
-        auto&& ps = mh_ps.lock();
+        auto&& vs = m_vs_handle.lock();
+        auto&& ps = m_ps_handle.lock();
 
         // Programable state -----------
         std::array<vk::PipelineShaderStageCreateInfo, 2> pipeline_shader_stage_createinfo = {
@@ -49,7 +72,7 @@ namespace VKN {
 
         // Create a pipeline layout from Shader stages
         // Descriptor set layout + reflected binding map + pipeline layout
-        create_descriptor_pipeline_layout(*vs, *ps);
+        create_descriptor_pipeline_layout();
         // ----------
 
         // Fixed pipeline state -----------
@@ -183,9 +206,13 @@ namespace VKN {
         return &itr->second;
     }
 
-    void Technique::create_descriptor_pipeline_layout(const Shader& vs, const Shader& ps)
+    void Technique::create_descriptor_pipeline_layout()
     {
         auto&& device = m_gfx_device.m_device;
+
+        auto&& vs = m_vs_handle.lock();
+        auto&& ps = m_ps_handle.lock();
+        auto&& cs = m_cs_handle.lock();
 
         // Collect and merge descriptor set layouts from VS and PS by set_number.
         // Bindings at the same (set, binding) slot have their stageFlags OR-ed together.
@@ -261,8 +288,16 @@ namespace VKN {
             }
         };
 
-        collect_stage(vs);
-        collect_stage(ps);
+        // todo : refactor and make it easier to read
+        if (vs) {
+            collect_stage(*vs);
+        }
+        if (ps) {
+            collect_stage(*ps);
+        }
+        if (cs) {
+            collect_stage(*cs);
+        }
 
         m_reflected_binding_map.clear();
         m_descriptorset_layouts.clear();
@@ -348,7 +383,6 @@ namespace VKN {
                         }
                     }
                 }
-                
             }
 
             vk::PipelineLayoutCreateInfo pipeline_layout_createinfo{

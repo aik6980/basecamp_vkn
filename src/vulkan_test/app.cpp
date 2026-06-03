@@ -84,40 +84,36 @@ void App::create_scene()
 {
     auto&& gfx_device = Gfx_main::gfx_device();
 
-    auto&& shader_manager = Gfx_main::shader_manager();
+    auto&& shader_manager   = Gfx_main::shader_manager();
     auto&& resource_manager = Gfx_main::resource_manager();
 
     // for each render passes
-    auto&& colour_format                 = gfx_device.backbuffer_colour_format();
-    auto&& depth_format                  = gfx_device.backbuffer_depth_format();
-    VKN::Targets_createinfo targets_info = {colour_format, depth_format};
-    // create techniques
-    shader_manager.register_technique("test/single_triangle", targets_info);
-    shader_manager.register_technique("test/constant_buffer", targets_info);
-    shader_manager.register_technique("test/bindless_textures", targets_info);
+    auto&& colour_format = gfx_device.backbuffer_colour_format();
+    auto&& depth_format  = gfx_device.backbuffer_depth_format();
 
-    #if 0
-    shader_manager.register_technique("t1",
-        VKN::Technique_createinfo{.m_vs_name = "hello_triangle_mesh.vs", .m_ps_name = "hello_triangle.ps"},
-        targets_info);
-    #endif
+    // create techniques
+    shader_manager.register_raster_technique("test/single_triangle", colour_format, depth_format);
+    shader_manager.register_raster_technique("test/constant_buffer", colour_format, depth_format);
+    shader_manager.register_raster_technique("test/bindless_textures", colour_format, depth_format);
 
     // create Textures
     auto texture_size = 64u;
     auto&& texdata    = TextureDataGenerator::create_checkerboard_texture_default(texture_size);
     resource_manager.create_texture("t_checkerboard", texdata);
 
-    resource_manager.create_texture("t_checkerboard_redblue", TextureDataGenerator::create_checkerboard_texture(texture_size, XMCOLOR(1.0f, 0.0f, 0.0f, 1.0f), XMCOLOR(0.0f, 0.0f, 1.0f, 1.0f)));
-    resource_manager.create_texture("t_checkerboard_redgreen", TextureDataGenerator::create_checkerboard_texture(texture_size, XMCOLOR(1.0f, 0.0f, 0.0f, 1.0f), XMCOLOR(0.0f, 1.0f, 0.0f, 1.0f)));
-    resource_manager.create_texture("t_checkerboard_greenblue", TextureDataGenerator::create_checkerboard_texture(texture_size, XMCOLOR(0.0f, 1.0f, 0.0f, 1.0f), XMCOLOR(0.0f, 0.0f, 1.0f, 1.0f)));
+    resource_manager.create_texture("t_checkerboard_redblue",
+        TextureDataGenerator::create_checkerboard_texture(
+            texture_size, XMCOLOR(1.0f, 0.0f, 0.0f, 1.0f), XMCOLOR(0.0f, 0.0f, 1.0f, 1.0f)));
+    resource_manager.create_texture("t_checkerboard_redgreen",
+        TextureDataGenerator::create_checkerboard_texture(
+            texture_size, XMCOLOR(1.0f, 0.0f, 0.0f, 1.0f), XMCOLOR(0.0f, 1.0f, 0.0f, 1.0f)));
+    resource_manager.create_texture("t_checkerboard_greenblue",
+        TextureDataGenerator::create_checkerboard_texture(
+            texture_size, XMCOLOR(0.0f, 1.0f, 0.0f, 1.0f), XMCOLOR(0.0f, 0.0f, 1.0f, 1.0f)));
 
     // create samplers
     resource_manager.create_linear_wrap_sampler();
 
     // create mesh
     // resource_manager->create_mesh();
-
-    // shader_manager->register_shader("hello_triangle.vs");
-    // shader_manager->register_shader("hello_triangle_mesh.vs");
-    // shader_manager->register_shader("hello_triangle.ps");
 }

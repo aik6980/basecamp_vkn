@@ -15,35 +15,39 @@ namespace VKN {
         m_shader_map.clear();
     }
 
-    std::weak_ptr<Technique> Shader_manager::register_technique(
-        const std::string& filename, const Targets_createinfo& targets)
+    std::weak_ptr<Technique> Shader_manager::register_raster_technique(
+        const std::string& filename, vk::Format color_format, vk::Format depth_format)
     {
-        auto create_info = Technique_createinfo{
-            .m_vs_name = filename + ".vs",
-            .m_ps_name = filename + ".ps",
-        };
-
-        auto&& technique = register_technique(filename, create_info, targets);
-
-        return technique;
-    }
-
-    std::weak_ptr<Technique> Shader_manager::register_technique(
-        const std::string& name, const Technique_createinfo& create_info, const Targets_createinfo& targets)
-    {
-        if (auto&& t = get_technique(name); t.lock() != nullptr) {
+        if (auto&& t = get_technique(filename); t.lock() != nullptr) {
             return t;
         }
 
-        auto&& h_vs_shader = register_shader(create_info.m_vs_name);
-        auto&& h_ps_shader = register_shader(create_info.m_ps_name);
+        auto&& vs_shader_handle = register_shader(filename + ".vs");
+        auto&& ps_shader_handle = register_shader(filename + ".ps");
 
         auto&& technique = std::make_shared<Technique>(m_gfx_device);
-        technique->mh_vs = h_vs_shader;
-        technique->mh_ps = h_ps_shader;
-        technique->create_pipeline(targets.m_colour_format, targets.m_depth_format);
+        technique->m_vs_handle = vs_shader_handle;
+        technique->m_ps_handle = ps_shader_handle;
+        technique->create_pipeline(color_format, depth_format);
 
-        m_technique_map.insert({name, technique});
+        m_technique_map.insert({filename, technique});
+        return technique;
+    }
+
+    std::weak_ptr<Technique> Shader_manager::register_compute_technique(
+        const std::string& filename)
+    {
+        if (auto&& t = get_technique(filename); t.lock() != nullptr) {
+            return t;
+        }
+
+        auto&& cs_shader_handle = register_shader(filename + ".cs");
+
+        auto&& technique = std::make_shared<Technique>(m_gfx_device);
+        technique->m_cs_handle = cs_shader_handle;
+        technique->create_compute_pipeline();
+
+        m_technique_map.insert({filename, technique});
         return technique;
     }
 

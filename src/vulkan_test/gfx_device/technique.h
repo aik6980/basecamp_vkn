@@ -7,16 +7,6 @@ namespace VKN {
 
     struct Descriptorset_layoutdata;
 
-    struct Technique_createinfo {
-        std::string m_vs_name;
-        std::string m_ps_name;
-    };
-
-    struct Targets_createinfo {
-        vk::Format m_colour_format = vk::Format::eUndefined;
-        vk::Format m_depth_format  = vk::Format::eUndefined;
-    };
-
     struct Reflected_descriptor_binding {
         uint32_t m_set_number       = 0;
         uint32_t m_binding_number   = 0;
@@ -36,14 +26,16 @@ namespace VKN {
         void destroy();
 
         void create_pipeline(vk::Format color_format, vk::Format depth_format);
+        void create_compute_pipeline();
 
         const Reflected_descriptor_binding* find_binding(const std::string& reflected_name) const;
 
       public:
         Device& m_gfx_device;
 
-        std::weak_ptr<Shader> mh_vs;
-        std::weak_ptr<Shader> mh_ps;
+        std::weak_ptr<Shader> m_vs_handle;
+        std::weak_ptr<Shader> m_ps_handle;
+        std::weak_ptr<Shader> m_cs_handle;
 
         std::vector<vk::DescriptorSetLayout> m_descriptorset_layouts;
         std::vector<Descriptorset_layoutdata*> m_descriptorset_infos;
@@ -53,10 +45,8 @@ namespace VKN {
         vk::PipelineLayout m_pipeline_layout;
         vk::Pipeline m_pipeline;
 
-        inline static const std::string ENTRY_POINT = "main";
-
       private:
-        void create_descriptor_pipeline_layout(const Shader& vs, const Shader& ps);
+        void create_descriptor_pipeline_layout();
     };
 
 } // namespace VKN
