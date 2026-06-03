@@ -485,6 +485,9 @@ namespace VKN {
         create_descriptor_pool();
         create_depth_buffer();
 
+        // off screen render target
+        create_offscreen_colour_target();
+
         create_sync_object();
     }
 
@@ -628,7 +631,9 @@ namespace VKN {
         // create swapchain
         vkb::SwapchainBuilder swapchain_builder{vkb_device};
 
-        auto&& ret_swapchain = swapchain_builder.set_old_swapchain(m_vkb_swapchain).build();
+        auto&& ret_swapchain = swapchain_builder.set_old_swapchain(m_vkb_swapchain)
+            .add_image_usage_flags(static_cast<VkFlags>(vk::ImageUsageFlagBits::eTransferDst))
+            .build();
 
         if (!ret_swapchain) {
             throw std::runtime_error(ret_swapchain.error().message());
@@ -692,6 +697,8 @@ namespace VKN {
         m_resource_manager->destroy();
         destroy_resource(m_depth_buffer);
 
+        destroy_offscreen_colour_target();
+
         // destroy command buffer
         // freeing the commandBuffer is optional, as it will automatically freed when the
         // corresponding CommandPool is destroyed.
@@ -720,6 +727,57 @@ namespace VKN {
 
         // destroy instance
         m_vk_instance.destroy();
+    }
+
+    void Device::destroy_offscreen_colour_target()
+    {
+        destroy_resource(m_offscreen_colour);
+        m_offscreen_colour = Texture{};
+    }
+
+    void Device::create_offscreen_colour_target()
+    {
+        // If we recreate later (resize), clean previous first.
+        destroy_offscreen_colour_target();
+
+        // Todo: 
+        // for now we are using the same format for offscreen colour target and swapchain image, but it doesn't have to be the case.
+        m_offscreen_colour.m_format = m_swapchain_format;
+
+        vk::ImageCreateInfo image_createinfo{
+            .imageType     = vk::ImageType::e2D,
+            .format        = m_offscreen_colour.m_format,
+            .extent        = vk::Extent3D(m_swapchain_image_size.width, m_swapchain_image_size.height, 1),
+            .mipLevels     = 1,
+            .arrayLayers   = 1,
+            .samples       = vk::SampleCountFlagBits::e1,
+            .tiling        = vk::ImageTiling::eOptimal,
+            .usage         = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc,
+            .sharingMode   = vk::SharingMode::eExclusive,
+            .initialLayout = vk::ImageLayout::eUndefined,
+        };
+
+        vma::AllocationCreateInfo alloc_createinfo{};
+        alloc_createinfo.usage = vma::MemoryUsage::eAutoPreferDevice;
+
+        std::tie(m_offscreen_colour.m_alloc, m_offscreen_colour.m_image) =
+            m_vma_allocator.createImage(image_createinfo, alloc_createinfo);
+
+        vk::ImageViewCreateInfo image_view_createinfo{
+            .image    = m_offscreen_colour.m_image,
+            .viewType = vk::ImageViewType::e2D,
+            .format   = m_offscreen_colour.m_format,
+            .subresourceRange =
+                vk::ImageSubresourceRange{
+                    .aspectMask     = vk::ImageAspectFlagBits::eColor,
+                    .baseMipLevel   = 0,
+                    .levelCount     = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount     = 1,
+                },
+        };
+
+        m_offscreen_colour.m_view = m_device.createImageView(image_view_createinfo);
     }
 
     void Device::create_vma_allocator()
@@ -819,11 +877,11 @@ namespace VKN {
                 .flags = vk::FenceCreateFlagBits::eSignaled,
             };
 
-            m_frame_resource[i]->m_inflight_fence = m_device.createFence(fence_createinfo);
+            m_frame_resource[i]->m_inflight_fence            = m_device.createFence(fence_createinfo);
             m_frame_resource[i]->m_image_available_semaphore = m_device.createSemaphore(vk::SemaphoreCreateInfo());
         }
 
-        for (uint32_t i=0; i < m_swapchain_images.size(); ++i){
+        for (uint32_t i = 0; i < m_swapchain_images.size(); ++i) {
             m_render_finished_semaphore.push_back(m_device.createSemaphore(vk::SemaphoreCreateInfo()));
         }
     }
@@ -839,7 +897,6 @@ namespace VKN {
             m_device.destroySemaphore(m_render_finished_semaphore[i]);
         }
         m_render_finished_semaphore.clear();
-
     }
 
     void Device::create_descriptor_pool()
@@ -993,6 +1050,7 @@ namespace VKN {
 
             // Define the subresource range (which parts of the image are affected)
             .subresourceRange = {
+                // note: this should be parameterized if we want to use this function for depth/stencil image as well
                 .aspectMask     = vk::ImageAspectFlagBits::eColor, // Affects the color aspect of the image
                 .baseMipLevel   = 0,                               // Start at mip level 0
                 .levelCount     = 1,                               // Number of mip levels affected

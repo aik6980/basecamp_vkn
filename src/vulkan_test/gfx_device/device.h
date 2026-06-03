@@ -63,6 +63,10 @@ namespace VKN {
         vk::Format backbuffer_depth_format() const { return m_depth_buffer.m_format; }
         vk::Image backbuffer_depth_image() const { return m_depth_buffer.m_image; }
 
+        vk::Image offscreen_colour_image() const { return m_offscreen_colour.m_image; }
+        vk::ImageView offscreen_colour_image_view() const { return m_offscreen_colour.m_view; }
+        vk::Format offscreen_colour_format() const { return m_offscreen_colour.m_format; }
+
         struct Transition_image_layout_info {
             vk::ImageLayout dst_layout;
             vk::ImageLayout src_layout;
@@ -98,6 +102,10 @@ namespace VKN {
 
         // Resource manager
         void destroy_resource(Texture& resource);
+
+        // Off screen render targets
+        void create_offscreen_colour_target();
+        void destroy_offscreen_colour_target();
 
         // Window
         HINSTANCE m_hinstance;
@@ -139,8 +147,11 @@ namespace VKN {
         // VMA Allocator
         vma::Allocator m_vma_allocator;
 
+        // All the buffers and images should be managed by the reosurce manager or different class
         // Buffer
         Texture m_depth_buffer;
+        // Offscreen render targets
+        Texture m_offscreen_colour;
 
         // Syncronization
         const uint64_t m_fence_timeout = 100000000;

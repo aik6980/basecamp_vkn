@@ -17,8 +17,9 @@ void Main_renderer::draw()
     }
 
     // setup render pass
-    auto&& render_target_image = gfx_device.backbuffer_colour_image();
-    auto&& depth_target_image  = gfx_device.backbuffer_depth_image();
+    auto&& render_target_image      = gfx_device.offscreen_colour_image();
+    auto&& render_target_image_view = gfx_device.offscreen_colour_image_view();
+    auto&& depth_target_image       = gfx_device.backbuffer_depth_image();
 
     gfx_device.transition_image_layout(render_target_image,
         VKN::Device::Transition_image_layout_info{
@@ -37,7 +38,7 @@ void Main_renderer::draw()
     };
 
     vk::RenderingAttachmentInfo colour_attachment{
-        .imageView   = gfx_device.backbuffer_colour_image_view(),
+        .imageView   = render_target_image_view,
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp      = vk::AttachmentLoadOp::eClear,
         .storeOp     = vk::AttachmentStoreOp::eStore,
@@ -73,7 +74,7 @@ void Main_renderer::draw()
         command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
         command_buffer->draw(3, 1, 0, 0);
     }
-    
+
     // 2nd draw
     {
         auto&& technique = shader_manager.get_technique("test/constant_buffer").lock();
@@ -111,19 +112,69 @@ void Main_renderer::draw()
         command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
         const bool apply_ok = textures_ok && sampler_ok && technique_instance.apply();
         assert(apply_ok);
-        
+
         command_buffer->draw(6, 4, 0, 0);
     }
 
     command_buffer->endRendering();
 
+    // copy offscreen render target to backbuffer
+    auto&& swapchain_image = gfx_device.backbuffer_colour_image();
+
     gfx_device.transition_image_layout(render_target_image,
         VKN::Device::Transition_image_layout_info{
-            .dst_layout       = vk::ImageLayout::ePresentSrcKHR,
+            .dst_layout       = vk::ImageLayout::eTransferSrcOptimal,
             .src_layout       = vk::ImageLayout::eColorAttachmentOptimal,
-            .dst_access_flags = vk::AccessFlagBits2::eNone,
+            .dst_access_flags = vk::AccessFlagBits2::eTransferRead,
             .src_access_flags = vk::AccessFlagBits2::eColorAttachmentWrite,
-            .dst_stage_flags  = vk::PipelineStageFlagBits2::eBottomOfPipe,
+            .dst_stage_flags  = vk::PipelineStageFlagBits2::eTransfer,
             .src_stage_flags  = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        });
+
+    gfx_device.transition_image_layout(swapchain_image,
+        VKN::Device::Transition_image_layout_info{
+            .dst_layout       = vk::ImageLayout::eTransferDstOptimal,
+            .src_layout       = vk::ImageLayout::eUndefined,
+            .dst_access_flags = vk::AccessFlagBits2::eTransferWrite,
+            .src_access_flags = vk::AccessFlagBits2::eNone,
+            .dst_stage_flags  = vk::PipelineStageFlagBits2::eTransfer,
+            .src_stage_flags  = vk::PipelineStageFlagBits2::eTopOfPipe,
+        });
+
+    vk::ImageCopy copy_region{
+        .srcSubresource =
+            vk::ImageSubresourceLayers{
+                .aspectMask     = vk::ImageAspectFlagBits::eColor,
+                .mipLevel       = 0,
+                .baseArrayLayer = 0,
+                .layerCount     = 1,
+            },
+        .srcOffset = vk::Offset3D{0, 0, 0},
+        .dstSubresource =
+            vk::ImageSubresourceLayers{
+                .aspectMask     = vk::ImageAspectFlagBits::eColor,
+                .mipLevel       = 0,
+                .baseArrayLayer = 0,
+                .layerCount     = 1,
+            },
+        .dstOffset = vk::Offset3D{0, 0, 0},
+        .extent    = vk::Extent3D{gfx_device.backbuffer_colour_size().width, gfx_device.backbuffer_colour_size().height, 1},
+    };
+
+    command_buffer->copyImage(render_target_image,
+        vk::ImageLayout::eTransferSrcOptimal,
+        swapchain_image,
+        vk::ImageLayout::eTransferDstOptimal,
+        1,
+        &copy_region);
+
+    gfx_device.transition_image_layout(swapchain_image,
+        VKN::Device::Transition_image_layout_info{
+            .dst_layout       = vk::ImageLayout::ePresentSrcKHR,
+            .src_layout       = vk::ImageLayout::eTransferDstOptimal,
+            .dst_access_flags = vk::AccessFlagBits2::eNone,
+            .src_access_flags = vk::AccessFlagBits2::eTransferWrite,
+            .dst_stage_flags  = vk::PipelineStageFlagBits2::eBottomOfPipe,
+            .src_stage_flags  = vk::PipelineStageFlagBits2::eTransfer,
         });
 }

@@ -6,6 +6,16 @@
   },
   "configurePresets": [
     {
+      "name": "windows-msvc-debug",
+      "displayName": "Windows MSVC Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
       "name": "linux",
       "displayName": "Linux build - Vulkan",
       "generator": "Ninja",
@@ -21,7 +31,9 @@
     {
       "name": "build",
       "configurePreset": "linux",
-      "targets": [ "vulkan_test" ]
+      "targets": [
+        "vulkan_test"
+      ]
     }
   ]
 }
