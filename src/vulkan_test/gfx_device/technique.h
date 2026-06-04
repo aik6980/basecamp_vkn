@@ -45,6 +45,7 @@ namespace VKN {
         vk::PipelineLayout m_pipeline_layout;
         vk::Pipeline m_pipeline;
 
+        vk::PipelineBindPoint m_bind_point = vk::PipelineBindPoint::eGraphics;
       private:
         void create_descriptor_pipeline_layout();
     };

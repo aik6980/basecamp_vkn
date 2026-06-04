@@ -44,6 +44,7 @@ namespace VKN {
         };
 
         m_pipeline = device.createComputePipeline({}, compute_pipeline_create_info).value;
+        m_bind_point = vk::PipelineBindPoint::eCompute;
     }
 
     void Technique::create_pipeline(vk::Format color_format, vk::Format depth_format)
@@ -195,6 +196,7 @@ namespace VKN {
         }
 
         m_pipeline = pipeline;
+        m_bind_point = vk::PipelineBindPoint::eGraphics;
     }
 
     const Reflected_descriptor_binding* Technique::find_binding(const std::string& reflected_name) const

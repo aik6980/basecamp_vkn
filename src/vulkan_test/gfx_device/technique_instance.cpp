@@ -61,6 +61,21 @@ namespace VKN {
         return true;
     }
 
+    bool Technique_instance::bind_uav_by_name(const std::string& reflected_name, const std::string& uav_name)
+    {
+        const auto* reflected = m_tech.find_binding(reflected_name);
+        if (!reflected)
+            return false;
+
+        const bool is_storage_image  = reflected->m_descriptor_type == vk::DescriptorType::eStorageImage;
+        const bool is_storage_buffer = reflected->m_descriptor_type == vk::DescriptorType::eStorageBuffer;
+        if (!is_storage_image && !is_storage_buffer)
+            return false;
+
+        m_uav_map[reflected_name] = uav_name;
+        return true;
+    }
+
     namespace {
 
         enum class Pending_write_kind { Buffer, Image };
@@ -122,6 +137,26 @@ namespace VKN {
 
                 auto& stats = stats_by_set_index[reflected->m_set_layout_index];
                 stats.total_image_infos += 1u;
+            }
+
+            for (const auto& [reflected_name, uav_name] : inst.m_uav_map) {
+                (void)uav_name;
+                const auto* reflected = inst.m_tech.find_binding(reflected_name);
+                if (!reflected) {
+                    return false;
+                }
+
+                if (reflected->m_descriptor_type == vk::DescriptorType::eStorageImage) {
+                    auto& stats = stats_by_set_index[reflected->m_set_layout_index];
+                    stats.total_image_infos += 1u;
+                }
+                else if (reflected->m_descriptor_type == vk::DescriptorType::eStorageBuffer) {
+                    // No named storage-buffer lookup yet in Resource_manager.
+                    // Keep stats unchanged; apply() will fail fast with TODO path.
+                }
+                else {
+                    return false;
+                }
             }
 
             return true;
@@ -250,6 +285,42 @@ namespace VKN {
             });
         }
 
+        for (const auto& [reflected_name, uav_name] : m_uav_map) {
+            const auto* reflected = m_tech.find_binding(reflected_name);
+            if (!reflected) {
+                return false;
+            }
+
+            if (reflected->m_descriptor_type == vk::DescriptorType::eStorageImage) {
+                auto& pending = ensure_set_allocated(reflected->m_set_layout_index, 0);
+
+                auto texture = resource_manager->get_texture(uav_name);
+
+                const size_t start = pending.image_infos.size();
+                pending.image_infos.push_back(vk::DescriptorImageInfo{
+                    .sampler     = vk::Sampler{},
+                    .imageView   = texture.m_view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                });
+
+                pending.plans.push_back(Pending_write_plan{
+                    .kind             = Pending_write_kind::Image,
+                    .binding          = reflected->m_binding_number,
+                    .descriptor_type  = vk::DescriptorType::eStorageImage,
+                    .descriptor_count = 1,
+                    .start_index      = start,
+                });
+            }
+            else if (reflected->m_descriptor_type == vk::DescriptorType::eStorageBuffer) {
+                // TODO: add named storage-buffer registry/lookup in Resource_manager.
+                return false;
+            }
+            else {
+                return false;
+            }
+        }
+
+        //  update all decriptor sets
         for (auto& [set_layout_index, pending] : pending_by_set_index) {
             (void)set_layout_index;
 
@@ -282,7 +353,7 @@ namespace VKN {
 
         for (const auto& [set_layout_index, pending] : pending_by_set_index) {
             command_buffer.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics, m_tech.m_pipeline_layout, set_layout_index, pending.descriptor_set, {});
+                m_tech.m_bind_point, m_tech.m_pipeline_layout, set_layout_index, pending.descriptor_set, {});
         }
 
         return true;

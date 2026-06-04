@@ -8,10 +8,12 @@ namespace VKN {
     {
         auto&& device = m_gfx_device.m_device;
 
-        std::array<vk::DescriptorPoolSize, 3> pool_sizes = {
+        std::array<vk::DescriptorPoolSize, 5> pool_sizes = {
             vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, Descriptor_pool::m_max_descriptor),
             vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, Descriptor_pool::m_max_descriptor),
             vk::DescriptorPoolSize(vk::DescriptorType::eSampler, Descriptor_pool::m_max_descriptor),
+            vk::DescriptorPoolSize(vk::DescriptorType::eStorageImage, Descriptor_pool::m_max_descriptor),
+            vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, Descriptor_pool::m_max_descriptor),
         };
 
         vk::DescriptorPoolCreateInfo create_info{

@@ -38,7 +38,7 @@ macro(Dxc_compile src_files dxc_path profile entry_point stage_suffix spirv_opt)
 		add_custom_command(
 			OUTPUT ${OUTPUT_FILENAME}.${stage_suffix}.obj ${OUTPUT_FILENAME}.${stage_suffix}.asm 
 			COMMAND ${dxc_path} -T ${profile} -E ${entry_point} ${spirv_opt} -Ni -Od -Fo ${OUTPUT_FILENAME}.${stage_suffix}.obj -Fc ${OUTPUT_FILENAME}.${stage_suffix}.asm -Zpr ${var}
-			#COMMAND echo Effect Compiler ${var}
+			COMMAND echo Effect Compiler ${var}
 			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 			#MAIN_DEPENDENCY ${var}
 			DEPENDS ${var}
