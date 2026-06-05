@@ -632,8 +632,8 @@ namespace VKN {
         vkb::SwapchainBuilder swapchain_builder{vkb_device};
 
         auto&& ret_swapchain = swapchain_builder.set_old_swapchain(m_vkb_swapchain)
-            .add_image_usage_flags(static_cast<VkFlags>(vk::ImageUsageFlagBits::eTransferDst))
-            .build();
+                                   .add_image_usage_flags(static_cast<VkFlags>(vk::ImageUsageFlagBits::eTransferDst))
+                                   .build();
 
         if (!ret_swapchain) {
             throw std::runtime_error(ret_swapchain.error().message());
@@ -642,15 +642,20 @@ namespace VKN {
         vkb::destroy_swapchain(m_vkb_swapchain);
         m_vkb_swapchain = ret_swapchain.value();
 
-        m_swapchain            = m_vkb_swapchain.swapchain;
+        m_swapchain            = vk::SwapchainKHR(m_vkb_swapchain.swapchain);
         m_swapchain_image_size = m_vkb_swapchain.extent;
 
         auto&& vkb_swapchain_images = m_vkb_swapchain.get_images().value();
-        std::copy(vkb_swapchain_images.begin(), vkb_swapchain_images.end(), std::back_inserter(m_swapchain_images));
+        std::transform(vkb_swapchain_images.begin(),
+            vkb_swapchain_images.end(),
+            std::back_inserter(m_swapchain_images),
+            [](VkImage img) { return vk::Image(img); }); 
 
         auto&& vkb_swapchain_image_views = m_vkb_swapchain.get_image_views().value();
-        std::copy(
-            vkb_swapchain_image_views.begin(), vkb_swapchain_image_views.end(), std::back_inserter(m_swapchain_image_views));
+        std::transform(vkb_swapchain_image_views.begin(),
+            vkb_swapchain_image_views.end(),
+            std::back_inserter(m_swapchain_image_views),
+            [](VkImageView view) { return vk::ImageView(view); });
 
         m_swapchain_format = vk::Format(m_vkb_swapchain.image_format);
 
@@ -740,8 +745,9 @@ namespace VKN {
         // If we recreate later (resize), clean previous first.
         destroy_offscreen_colour_target();
 
-        // Todo: 
-        // for now we are using the same format for offscreen colour target and swapchain image, but it doesn't have to be the case.
+        // Todo:
+        // for now we are using the same format for offscreen colour target and swapchain image, but it doesn't have to be
+        // the case.
         m_offscreen_colour.m_format = m_swapchain_format;
 
         vk::ImageCreateInfo image_createinfo{

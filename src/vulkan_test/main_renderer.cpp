@@ -31,7 +31,7 @@ void Main_renderer::draw()
             .src_stage_flags  = vk::PipelineStageFlagBits2::eTopOfPipe,
         });
 
-    vk::ClearColorValue clear_colour{{{0.2f, 0.2f, 0.2f, 0.2f}}};
+    vk::ClearColorValue clear_colour{std::array<float, 4>{0.2f, 0.2f, 0.2f, 0.2f}};
     vk::ClearDepthStencilValue clear_depth = {
         .depth   = 1.0f,
         .stencil = 0u,

@@ -141,7 +141,7 @@ namespace VKN {
         // copy src data
         std::memcpy(buffer_alloc_info.pMappedData, src_data, size);
 
-        return Buffer{.m_buffer = buffer, .m_allocation = buffer_alloc, .m_size = buffer_alloc_info.size};
+        return Buffer{.m_buffer = buffer, .m_allocation = buffer_alloc, .m_size = static_cast<size_t>(buffer_alloc_info.size)};
     }
 
     void Resource_manager::create_texture(const std::string& name, const TextureData& texture_data)
