@@ -96,11 +96,6 @@ namespace VKN {
             std::vector<vk::WriteDescriptorSet> writes;
         };
 
-        struct Set_stats {
-            uint32_t variable_descriptor_count = 0;
-            uint32_t total_image_infos         = 0;
-        };
-
         const Reflected_descriptor_binding* find_binding_checked(
             const Technique& tech, const std::string& reflected_name, vk::DescriptorType expected_type)
         {
@@ -114,7 +109,8 @@ namespace VKN {
             return reflected;
         }
 
-        bool build_set_stats(const Technique_instance& inst, std::unordered_map<uint32_t, Set_stats>& stats_by_set_index)
+        bool build_variable_descriptor_count_by_set_index_lookup(
+            const Technique_instance& inst, std::unordered_map<uint32_t, uint32_t>& variable_descriptor_count_by_set_index)
         {
             for (const auto& [reflected_name, texture_names] : inst.m_sampled_image_array_map) {
                 const auto* reflected = find_binding_checked(inst.m_tech, reflected_name, vk::DescriptorType::eSampledImage);
@@ -122,40 +118,11 @@ namespace VKN {
                     return false;
                 }
 
-                auto& stats = stats_by_set_index[reflected->m_set_layout_index];
-                stats.variable_descriptor_count =
-                    std::max(stats.variable_descriptor_count, static_cast<uint32_t>(texture_names.size()));
-                stats.total_image_infos += static_cast<uint32_t>(texture_names.size());
-            }
-
-            for (const auto& [reflected_name, sampler_name] : inst.m_sampler_map) {
-                (void)sampler_name;
-                const auto* reflected = find_binding_checked(inst.m_tech, reflected_name, vk::DescriptorType::eSampler);
-                if (!reflected) {
-                    return false;
-                }
-
-                auto& stats = stats_by_set_index[reflected->m_set_layout_index];
-                stats.total_image_infos += 1u;
-            }
-
-            for (const auto& [reflected_name, uav_name] : inst.m_uav_map) {
-                (void)uav_name;
-                const auto* reflected = inst.m_tech.find_binding(reflected_name);
-                if (!reflected) {
-                    return false;
-                }
-
-                if (reflected->m_descriptor_type == vk::DescriptorType::eStorageImage) {
-                    auto& stats = stats_by_set_index[reflected->m_set_layout_index];
-                    stats.total_image_infos += 1u;
-                }
-                else if (reflected->m_descriptor_type == vk::DescriptorType::eStorageBuffer) {
-                    // No named storage-buffer lookup yet in Resource_manager.
-                    // Keep stats unchanged; apply() will fail fast with TODO path.
-                }
-                else {
-                    return false;
+                // in reality, each set should only have one variable descriptor count binding, but we will take the max just
+                // in case there are multiple (which should be an error in shader reflection or shader writing)
+                if (reflected->m_is_variable_descriptor_count) {
+                    auto& current_count = variable_descriptor_count_by_set_index[reflected->m_set_layout_index];
+                    current_count = std::max(current_count, static_cast<uint32_t>(texture_names.size()));
                 }
             }
 
@@ -172,8 +139,8 @@ namespace VKN {
         auto&& command_buffer   = frame_resource.m_command_buffer;
         auto&& resource_manager = m_tech.m_gfx_device.m_resource_manager;
 
-        std::unordered_map<uint32_t, Set_stats> stats_by_set_index;
-        if (!build_set_stats(*this, stats_by_set_index)) {
+        std::unordered_map<uint32_t, uint32_t> variable_descriptor_count_by_set_index;
+        if (!build_variable_descriptor_count_by_set_index_lookup(*this, variable_descriptor_count_by_set_index)) {
             return false;
         }
 
@@ -186,17 +153,13 @@ namespace VKN {
             }
 
             uint32_t variable_count = fallback_variable_count;
-            auto stats_it           = stats_by_set_index.find(set_layout_index);
-            if (stats_it != stats_by_set_index.end() && stats_it->second.variable_descriptor_count > 0) {
-                variable_count = stats_it->second.variable_descriptor_count;
+            auto it                 = variable_descriptor_count_by_set_index.find(set_layout_index);
+            if (it != variable_descriptor_count_by_set_index.end() && it->second > 0) {
+                variable_count = it->second;
             }
 
             pending.descriptor_set =
                 descriptor_pool.create_descriptor_set(m_tech.m_descriptorset_layouts[set_layout_index], variable_count);
-
-            if (stats_it != stats_by_set_index.end() && stats_it->second.total_image_infos > 0) {
-                pending.image_infos.reserve(stats_it->second.total_image_infos);
-            }
 
             return pending;
         };
@@ -241,21 +204,25 @@ namespace VKN {
 
             auto& pending = ensure_set_allocated(reflected->m_set_layout_index, static_cast<uint32_t>(texture_names.size()));
 
-            const size_t start = pending.image_infos.size();
-            for (const auto& texture_name : texture_names) {
-                auto texture = resource_manager->get_texture(texture_name);
-                pending.image_infos.push_back(vk::DescriptorImageInfo{
+            const uint32_t consecutive_write_count = static_cast<uint32_t>(texture_names.size());
+            const size_t start                     = pending.image_infos.size();
+            // Allocate one contiguous span for this binding write.
+            pending.image_infos.resize(start + consecutive_write_count);
+
+            for (uint32_t i = 0; i < consecutive_write_count; ++i) {
+                auto texture                   = resource_manager->get_texture(texture_names[i]);
+                pending.image_infos[start + i] = vk::DescriptorImageInfo{
                     .sampler     = vk::Sampler{},
                     .imageView   = texture.m_view,
                     .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-                });
+                };
             }
 
             pending.plans.push_back(Pending_write_plan{
                 .kind             = Pending_write_kind::Image,
                 .binding          = reflected->m_binding_number,
                 .descriptor_type  = vk::DescriptorType::eSampledImage,
-                .descriptor_count = static_cast<uint32_t>(texture_names.size()),
+                .descriptor_count = consecutive_write_count,
                 .start_index      = start,
             });
         }

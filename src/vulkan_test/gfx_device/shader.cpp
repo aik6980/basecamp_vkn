@@ -160,6 +160,7 @@ namespace VKN {
                 const bool is_bindless = (refl_binding.count == 0);
 
                 if (is_bindless) {
+                    // does this mean we can only support up to 16 textures per bindless descriptor? - yes, but this is just an example, we can change this number as needed.
                     static const uint MAX_TEXTURES = 16;
                     layout_binding.descriptorCount = MAX_TEXTURES;
 

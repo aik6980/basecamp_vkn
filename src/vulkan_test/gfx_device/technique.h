@@ -13,6 +13,7 @@ namespace VKN {
         uint32_t m_set_layout_index = 0; // index used when binding in pipeline layout
         vk::DescriptorType m_descriptor_type{};
         uint32_t m_descriptor_count = 0;
+        bool m_is_variable_descriptor_count = false;
     };
 
     class Technique {

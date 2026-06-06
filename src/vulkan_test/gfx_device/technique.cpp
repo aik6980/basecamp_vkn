@@ -43,7 +43,7 @@ namespace VKN {
             .layout = m_pipeline_layout,
         };
 
-        m_pipeline = device.createComputePipeline({}, compute_pipeline_create_info).value;
+        m_pipeline   = device.createComputePipeline({}, compute_pipeline_create_info).value;
         m_bind_point = vk::PipelineBindPoint::eCompute;
     }
 
@@ -195,7 +195,7 @@ namespace VKN {
             assert(false); // should never happen
         }
 
-        m_pipeline = pipeline;
+        m_pipeline   = pipeline;
         m_bind_point = vk::PipelineBindPoint::eGraphics;
     }
 
@@ -349,13 +349,14 @@ namespace VKN {
                 m_descriptorset_layouts[set_number] = device.createDescriptorSetLayout(set_ci);
 
                 for (const auto& entry : merged.entries) {
-                    Reflected_descriptor_binding new_binding{
-                        .m_set_number       = set_number,
-                        .m_binding_number   = entry.binding.binding,
+                    Reflected_descriptor_binding new_binding{.m_set_number = set_number,
+                        .m_binding_number                                  = entry.binding.binding,
                         .m_set_layout_index = set_number, // can be 0 I believed, only use for error checking
                         .m_descriptor_type  = entry.binding.descriptorType,
                         .m_descriptor_count = entry.binding.descriptorCount,
-                    };
+                        .m_is_variable_descriptor_count =
+                            (entry.binding_flag & vk::DescriptorBindingFlagBits::eVariableDescriptorCount) !=
+                            vk::DescriptorBindingFlags{}};
 
                     auto [it, inserted] = m_reflected_binding_map.emplace(entry.reflected_name, new_binding);
                     if (!inserted) {

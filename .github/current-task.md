@@ -1,3 +1,6 @@
+## Interim task
+- simplfy build_set_stats() as I believed we don't need to provide consecutive array for non-bindless resources
+
 ## Main Goal
 Deliver frame graph v1 with one compute pass and one raster pass.
 
