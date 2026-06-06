@@ -111,6 +111,9 @@ void App::create_scene()
         TextureDataGenerator::create_checkerboard_texture(
             texture_size, XMCOLOR(0.0f, 1.0f, 0.0f, 1.0f), XMCOLOR(0.0f, 0.0f, 1.0f, 1.0f)));
 
+    auto&& texdata_solid = TextureDataGenerator::create_solid_texture(texture_size, XMCOLOR(1.0f, 0.0f, 1.0f, 1.0f));
+    resource_manager.create_texture("t_solid_magenta", texdata_solid);
+
     // create samplers
     resource_manager.create_linear_wrap_sampler();
 

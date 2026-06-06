@@ -12,7 +12,8 @@ namespace VKN {
         }
 
         bool bind_constant_by_name(const std::string& reflected_name, const void* data, size_t size);
-        bool bind_sampled_images_by_name(const std::string& reflected_name, const std::vector<std::string>& texture_names);
+        bool bind_sampled_image_by_name(const std::string& reflected_name, const std::string& texture_name);
+        bool bind_sampled_image_by_name(const std::string& reflected_name, const std::vector<std::string>& texture_names);
         bool bind_uav_by_name(const std::string& reflected_name, const std::string& uav_name);
         bool bind_sampler_by_name(const std::string& reflected_name, const std::string& sampler_name);
 

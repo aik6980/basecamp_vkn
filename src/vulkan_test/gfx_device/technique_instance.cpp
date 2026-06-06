@@ -29,7 +29,7 @@ namespace VKN {
         return true;
     }
 
-    bool Technique_instance::bind_sampled_images_by_name(
+    bool Technique_instance::bind_sampled_image_by_name(
         const std::string& reflected_name, const std::vector<std::string>& texture_names)
     {
         const auto* reflected = m_tech.find_binding(reflected_name);
@@ -45,6 +45,15 @@ namespace VKN {
 
         m_sampled_image_array_map[reflected_name] = texture_names;
         return true;
+    }
+
+    bool Technique_instance::bind_sampled_image_by_name(const std::string& reflected_name, const std::string& texture_name)
+    {
+        if (texture_name.empty()) {
+            return false;
+        }
+
+        return bind_sampled_image_by_name(reflected_name, std::vector<std::string>{texture_name});
     }
 
     bool Technique_instance::bind_sampler_by_name(const std::string& reflected_name, const std::string& sampler_name)
@@ -122,7 +131,7 @@ namespace VKN {
                 // in case there are multiple (which should be an error in shader reflection or shader writing)
                 if (reflected->m_is_variable_descriptor_count) {
                     auto& current_count = variable_descriptor_count_by_set_index[reflected->m_set_layout_index];
-                    current_count = std::max(current_count, static_cast<uint32_t>(texture_names.size()));
+                    current_count       = std::max(current_count, static_cast<uint32_t>(texture_names.size()));
                 }
             }
 

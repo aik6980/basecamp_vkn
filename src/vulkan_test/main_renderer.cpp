@@ -99,6 +99,8 @@ void Main_renderer::draw()
 
         auto&& technique_instance = VKN::Technique_instance(*technique);
 
+        const bool single_ok = technique_instance.bind_sampled_image_by_name("ColourTex_srv", "t_solid_magenta");
+
         std::vector<std::string> bindless_textures = {
             "t_checkerboard",
             "t_checkerboard_redblue",
@@ -106,14 +108,15 @@ void Main_renderer::draw()
             "t_checkerboard_greenblue",
         };
 
-        const bool textures_ok = technique_instance.bind_sampled_images_by_name("Textures_srv", bindless_textures);
+        const bool textures_ok = technique_instance.bind_sampled_image_by_name("ColourTexBindless_srv", bindless_textures);
         const bool sampler_ok  = technique_instance.bind_sampler_by_name("Linear_sam", "s_linear_wrap");
 
         command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
         const bool apply_ok = textures_ok && sampler_ok && technique_instance.apply();
         assert(apply_ok);
 
-        command_buffer->draw(6, 4, 0, 0);
+        auto total_instances = static_cast<uint32_t>(bindless_textures.size()) + 1; // +1 for single texture draw
+        command_buffer->draw(6, total_instances, 0, 0);
     }
 
     command_buffer->endRendering();
