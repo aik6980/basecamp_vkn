@@ -89,6 +89,7 @@ VS_OUTPUT vsmain(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
         float2 pos_world  = pos_local * scale + pos_center;
 
         output.position       = float4(pos_world, 0.0, 1.0);
+        output.uv_coord = Positions[idx] + float2(0.5, 0.5);
         output.texture_id     = 0;
         output.texture_source = 1; // single texture
         return output;

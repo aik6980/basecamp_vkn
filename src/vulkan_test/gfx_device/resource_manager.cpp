@@ -141,10 +141,12 @@ namespace VKN {
         // copy src data
         std::memcpy(buffer_alloc_info.pMappedData, src_data, size);
 
-        return Buffer{.m_buffer = buffer, .m_allocation = buffer_alloc, .m_size = static_cast<size_t>(buffer_alloc_info.size)};
+        return Buffer{
+            .m_buffer = buffer, .m_allocation = buffer_alloc, .m_size = static_cast<size_t>(buffer_alloc_info.size)};
     }
 
-    void Resource_manager::create_texture(const std::string& name, const TextureData& texture_data)
+    void Resource_manager::create_texture(
+        const std::string& name, const TextureData& texture_data, vk::ImageUsageFlags additional_usage_flags)
     {
         auto&& device         = m_gfx_device.m_device;
         auto&& vma_allocator  = m_gfx_device.m_vma_allocator;
@@ -194,6 +196,9 @@ namespace VKN {
         Texture tex{};
         tex.m_format = vk::Format::eR8G8B8A8Unorm;
         {
+            const vk::ImageUsageFlags image_usage =
+                vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled | additional_usage_flags;
+
             vk::ImageCreateInfo image_ci{
                 .imageType     = vk::ImageType::e2D,
                 .format        = tex.m_format,
@@ -202,7 +207,7 @@ namespace VKN {
                 .arrayLayers   = 1,
                 .samples       = vk::SampleCountFlagBits::e1,
                 .tiling        = vk::ImageTiling::eOptimal,
-                .usage         = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+                .usage         = image_usage,
                 .sharingMode   = vk::SharingMode::eExclusive,
                 .initialLayout = vk::ImageLayout::eUndefined,
             };

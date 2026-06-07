@@ -16,6 +16,50 @@ void Main_renderer::draw()
         return;
     }
 
+    // dispatch compute shader to write to UAV, use the output texture as input for raster shader
+    auto&& compute_output_texture = Gfx_main::resource_manager().get_texture("t_compute_output");
+    gfx_device.transition_image_layout(compute_output_texture.m_image,
+        VKN::Device::Transition_image_layout_info{
+            .dst_layout       = vk::ImageLayout::eGeneral,
+            .src_layout       = vk::ImageLayout::eShaderReadOnlyOptimal,
+            .dst_access_flags = vk::AccessFlagBits2::eShaderStorageWrite,
+            .src_access_flags = vk::AccessFlagBits2::eShaderSampledRead,
+            .dst_stage_flags  = vk::PipelineStageFlagBits2::eComputeShader,
+            .src_stage_flags  = vk::PipelineStageFlagBits2::eFragmentShader,
+        });
+
+    {
+        auto&& technique = shader_manager.get_technique("test/uav_resource").lock();
+        if (technique) {
+
+            auto&& technique_instance = VKN::Technique_instance(*technique);
+
+            const bool bind_ok = technique_instance.bind_uav_by_name("ColourTex_uav", "t_compute_output");
+
+            // create a helper functio for following steps as they are common for both compute and raster techniques:
+            // 1. bind pipeline
+            command_buffer->bindPipeline(technique->m_bind_point, technique->m_pipeline);
+
+            const bool apply_ok = technique_instance.apply();
+            assert(bind_ok && apply_ok);
+
+            const auto texture_size  = 64; // must match the size of texture created in create_scene()
+            const auto group_count_x = (texture_size + 7) / 8;
+            const auto group_count_y = (texture_size + 7) / 8;
+            command_buffer->dispatch(group_count_x, group_count_y, 1);
+        }
+    }
+
+    gfx_device.transition_image_layout(compute_output_texture.m_image,
+        VKN::Device::Transition_image_layout_info{
+            .dst_layout       = vk::ImageLayout::eShaderReadOnlyOptimal,
+            .src_layout       = vk::ImageLayout::eGeneral,
+            .dst_access_flags = vk::AccessFlagBits2::eShaderSampledRead,
+            .src_access_flags = vk::AccessFlagBits2::eShaderStorageWrite,
+            .dst_stage_flags  = vk::PipelineStageFlagBits2::eFragmentShader,
+            .src_stage_flags  = vk::PipelineStageFlagBits2::eComputeShader,
+        });
+
     // setup render pass
     auto&& render_target_image      = gfx_device.offscreen_colour_image();
     auto&& render_target_image_view = gfx_device.offscreen_colour_image_view();
@@ -99,7 +143,8 @@ void Main_renderer::draw()
 
         auto&& technique_instance = VKN::Technique_instance(*technique);
 
-        const bool single_ok = technique_instance.bind_sampled_image_by_name("ColourTex_srv", "t_solid_magenta");
+        //const bool single_ok = technique_instance.bind_sampled_image_by_name("ColourTex_srv", "t_solid_magenta");
+        const bool single_ok = technique_instance.bind_sampled_image_by_name("ColourTex_srv", "t_compute_output");
 
         std::vector<std::string> bindless_textures = {
             "t_checkerboard",
@@ -112,7 +157,7 @@ void Main_renderer::draw()
         const bool sampler_ok  = technique_instance.bind_sampler_by_name("Linear_sam", "s_linear_wrap");
 
         command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
-        const bool apply_ok = textures_ok && sampler_ok && technique_instance.apply();
+        const bool apply_ok = single_ok && textures_ok && sampler_ok && technique_instance.apply();
         assert(apply_ok);
 
         auto total_instances = static_cast<uint32_t>(bindless_textures.size()) + 1; // +1 for single texture draw

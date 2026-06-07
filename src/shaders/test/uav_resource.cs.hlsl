@@ -1,8 +1,15 @@
-RWTexture2D<float4> Colour_uav : register(u0);
+RWTexture2D<float4> ColourTex_uav : register(u0);
 
 [numthreads(8, 8, 1)]
 void csmain(uint3 tid : SV_DispatchThreadID)
 {
-    float2 uv = (float2(tid.xy) + 0.5) / float2(256.0, 256.0);
-    Colour_uav[tid.xy] = float4(uv, 0.0, 1.0);
+    uint width, height;
+    ColourTex_uav.GetDimensions(width, height);
+
+    if (tid.x >= width || tid.y >= height) {
+        return;
+    }
+
+    float2 uv = (float2(tid.xy) + 0.5) / float2(width, height);
+    ColourTex_uav[tid.xy] = float4(uv.x, uv.y, 0.0, 1.0);
 }

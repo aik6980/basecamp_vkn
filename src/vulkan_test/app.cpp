@@ -91,10 +91,13 @@ void App::create_scene()
     auto&& colour_format = gfx_device.backbuffer_colour_format();
     auto&& depth_format  = gfx_device.backbuffer_depth_format();
 
-    // create techniques
+    // create raster techniques
     shader_manager.register_raster_technique("test/single_triangle", colour_format, depth_format);
     shader_manager.register_raster_technique("test/constant_buffer", colour_format, depth_format);
     shader_manager.register_raster_technique("test/bindless_textures", colour_format, depth_format);
+
+    // create compute techniques
+    shader_manager.register_compute_technique("test/uav_resource");
 
     // create Textures
     auto texture_size = 64u;
@@ -113,6 +116,9 @@ void App::create_scene()
 
     auto&& texdata_solid = TextureDataGenerator::create_solid_texture(texture_size, XMCOLOR(1.0f, 0.0f, 1.0f, 1.0f));
     resource_manager.create_texture("t_solid_magenta", texdata_solid);
+
+    auto compute_out = TextureDataGenerator::create_solid_texture(texture_size, XMCOLOR(0.0f, 0.0f, 0.0f, 1.0f));
+    resource_manager.create_texture("t_compute_output", compute_out, vk::ImageUsageFlagBits::eStorage);
 
     // create samplers
     resource_manager.create_linear_wrap_sampler();

@@ -27,7 +27,7 @@ namespace VKN {
         Buffer m_index_buffer;
 
         // persistent create
-        void create_texture(const std::string& name, const TextureData& texture_data);
+        void create_texture(const std::string& name, const TextureData& texture_data, vk::ImageUsageFlags additional_usage_flags = {});
         void create_linear_wrap_sampler();
 
         Texture get_texture(const std::string& name) const;
