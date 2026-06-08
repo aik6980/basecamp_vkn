@@ -27,19 +27,19 @@ namespace VKN {
         Buffer m_index_buffer;
 
         // persistent create
-        void create_texture(const std::string& name, const TextureData& texture_data, vk::ImageUsageFlags additional_usage_flags = {});
+        void create_texture(
+            const std::string& name, const TextureData& texture_data, vk::ImageUsageFlags additional_usage_flags = {});
         void create_linear_wrap_sampler();
 
         Texture get_texture(const std::string& name) const;
         vk::Sampler get_sampler(const std::string& name) const;
+
       private:
-
-
         Device& m_gfx_device;
 
         std::vector<Buffer> m_staging_buffers;
 
-        // Persistent resources 
+        // Persistent resources
         std::unordered_map<std::string, Texture> m_textures;
         std::unordered_map<std::string, vk::Sampler> m_samplers;
     };

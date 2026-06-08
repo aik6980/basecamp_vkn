@@ -195,6 +195,8 @@ namespace VKN {
         // 2) GPU image
         Texture tex{};
         tex.m_format = vk::Format::eR8G8B8A8Unorm;
+        tex.m_width  = texture_data.m_width;
+        tex.m_height = texture_data.m_height;
         {
             const vk::ImageUsageFlags image_usage =
                 vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled | additional_usage_flags;
@@ -202,7 +204,7 @@ namespace VKN {
             vk::ImageCreateInfo image_ci{
                 .imageType     = vk::ImageType::e2D,
                 .format        = tex.m_format,
-                .extent        = vk::Extent3D{texture_data.m_width, texture_data.m_height, 1},
+                .extent        = vk::Extent3D{tex.m_width, tex.m_height, 1},
                 .mipLevels     = 1,
                 .arrayLayers   = 1,
                 .samples       = vk::SampleCountFlagBits::e1,
@@ -261,7 +263,7 @@ namespace VKN {
                         .layerCount     = 1,
                     },
                 .imageOffset = vk::Offset3D{0, 0, 0},
-                .imageExtent = vk::Extent3D{texture_data.m_width, texture_data.m_height, 1},
+                .imageExtent = vk::Extent3D{tex.m_width, tex.m_height, 1},
             };
 
             command_buffer.copyBufferToImage(

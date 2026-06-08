@@ -16,7 +16,7 @@ void Main_renderer::draw()
         return;
     }
 
-    // dispatch compute shader to write to UAV, use the output texture as input for raster shader
+    // dispatch compute shader to write to UAV, use the output texture as input for raster shader to draw a fullscreen quad. If the output from compute shader is correct, we should see a gradient pattern on the screen.
     auto&& compute_output_texture = Gfx_main::resource_manager().get_texture("t_compute_output");
     gfx_device.transition_image_layout(compute_output_texture.m_image,
         VKN::Device::Transition_image_layout_info{
@@ -43,9 +43,9 @@ void Main_renderer::draw()
             const bool apply_ok = technique_instance.apply();
             assert(bind_ok && apply_ok);
 
-            const auto texture_size  = 64; // must match the size of texture created in create_scene()
-            const auto group_count_x = (texture_size + 7) / 8;
-            const auto group_count_y = (texture_size + 7) / 8;
+            // 2. dispatch compute shader with enough thread groups to cover the entire output texture
+            const auto group_count_x = (compute_output_texture.m_width + 7) / 8;
+            const auto group_count_y = (compute_output_texture.m_height + 7) / 8;
             command_buffer->dispatch(group_count_x, group_count_y, 1);
         }
     }

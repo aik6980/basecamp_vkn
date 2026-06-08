@@ -24,6 +24,9 @@ namespace VKN {
 		
 		vk::Format		m_format;
 		vk::ImageView	m_view;
+
+		uint32_t m_width;
+		uint32_t m_height;
 	};
 
 	struct Mesh_buffer {
