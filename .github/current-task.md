@@ -78,20 +78,40 @@ Deliver frame graph v1 with one compute pass and one raster pass, while preparin
 - Added compute pipeline creation and command dispatch path
 - Validated reflected compute resource binding by name for UAV path
 ### Phase 2: Descriptor Expansion + Scratch Allocator (Status: In Progress)
-- Storage image UAV path is working for compute write then raster sample
-- Added dedicated compute output texture with storage usage flags
-- Added image layout/access transitions for compute write to fragment read
-- Remaining: integrate transient upload scratch allocator into Resource_manager upload path
-- Remaining: migrate transient constant buffer binding path to frame scratch allocator
-- Remaining: add storage buffer descriptor support in Technique_instance and Resource_manager
+**Upload Scratch Allocator (Complete)**
+- Added Scratch_allocator class with multi-page linear allocation and reuse pattern
+- Integrated allocator into Resource_manager (16MB default page size)
+- Migrated create_buffer and create_texture upload paths to use allocator suballocations
+- Wired submit-batch lifecycle: reset at begin_single_command_submission and after queue.waitIdle() in end_single_command_submission
+- Cleaned up old m_staging_buffers pattern—allocator now owns all transient upload pages
+
+**Remaining Work**
+- Migrate transient constant buffer binding path to frame scratch allocator
+- Add storage buffer descriptor support in Technique_instance and Resource_manager
+- Per-frame scratch allocator reset during frame begin after fence wait
 
 ### Immediate Follow-up
-- Add startup reflection assertions for compute binding names and descriptor types
-- Add runtime toggle between compute output and static sampled texture for debugging
+- **Priority 1: Per-Frame Scratch Allocator**
+  - Create Scratch_allocator instance for per-frame transient descriptor data
+  - Reset during frame_resource::begin_frame() after fence wait
+  - Verify alignment safety for uniform/storage buffer offset requirements
+
+- **Priority 2: Storage Buffer Support**
+  - Add storage buffer bind path to Technique_instance (bind_storage_buffer_by_name)
+  - Extend Resource_manager to support named persistent storage buffers
+  - Validate descriptor offset/range alignment for storage buffer writes
+
+- **Priority 3: Frame-Local Constant Buffer Migration**
+  - Move bind_constant_by_name from per-call allocation to per-frame scratch suballocation
+  - Ensure descriptor payload lifetime stable through apply + bind window
+
+- **Priority 4: Validation & Instrumentation**
+  - Add alignment assertions for scratch offset/range writes
+  - Add basic peak scratch usage stats (bytes per upload batch, bytes per frame)
+  - Add startup reflection assertions for compute binding names and descriptor types
+
 - Remove hardcoded compute dispatch texture size and query dimensions from the target texture
-- Implement storage buffer binding path for future render-scene GPU data
-- Add alignment checks for uniform/storage scratch suballocations
-- Add basic scratch usage stats (peak bytes per upload and per frame)
+- Add runtime toggle between compute output and static sampled texture for debugging
 
 ### Phase 3: Minimal Frame Graph
 - Add compute and raster pass descriptions

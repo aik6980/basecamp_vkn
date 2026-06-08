@@ -17,6 +17,7 @@ namespace VKN {
 
     class Device {
       public:
+        friend class Scratch_allocator;
         friend class Resource_manager;
         friend class Shader_manager;
         friend class Frame_resource;

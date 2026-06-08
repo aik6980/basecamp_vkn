@@ -11,10 +11,8 @@ namespace VKN {
         destroy_buffer(m_vertex_buffer);
         destroy_buffer(m_index_buffer);
 
-        for (auto&& buffer : m_staging_buffers) {
-            destroy_buffer(buffer);
-        }
-        m_staging_buffers.clear();
+        // upload scratch allocator lifetime is tied to submit batch; cleaned up by allocator
+        m_upload_scratch_allocator.destroy();
 
         for (auto&& [name, sampler] : m_samplers) {
             m_gfx_device.m_device.destroySampler(sampler);
@@ -71,31 +69,11 @@ namespace VKN {
         auto&& vma_allocator  = m_gfx_device.m_vma_allocator;
         auto&& command_buffer = m_gfx_device.m_single_use_command_buffer;
 
-        // create staging buffer
-        vk::Buffer staging_buffer;
-        vma::Allocation staging_buffer_alloc;
-        {
-            auto&& create_info = vk::BufferCreateInfo{
-                .size        = size,
-                .usage       = vk::BufferUsageFlagBits::eTransferSrc,
-                .sharingMode = vk::SharingMode::eExclusive,
-            };
-            auto&& alloc_create_info = vma::AllocationCreateInfo();
-            alloc_create_info.setUsage(vma::MemoryUsage::eAuto);
-            alloc_create_info.setFlags(
-                vma::AllocationCreateFlagBits::eHostAccessSequentialWrite | vma::AllocationCreateFlagBits::eMapped);
+        // 1. create staging buffer from upload scratch allocator and copy src data to it
+        auto alloc                 = m_upload_scratch_allocator.allocate_and_copy(data, size, 16);
+        vk::Buffer& staging_buffer = alloc.m_buffer;
 
-            vma::AllocationInfo buffer_alloc_info;
-
-            std::tie(staging_buffer_alloc, staging_buffer) =
-                vma_allocator.createBuffer(create_info, alloc_create_info, buffer_alloc_info);
-
-            // copy src data
-            std::memcpy(buffer_alloc_info.pMappedData, data, size);
-
-            m_staging_buffers.emplace_back(Buffer{.m_buffer = staging_buffer, .m_allocation = staging_buffer_alloc});
-        }
-
+        // 2. create destination buffer
         vk::Buffer buffer;
         vma::Allocation buffer_alloc;
         {
@@ -110,7 +88,7 @@ namespace VKN {
         }
 
         // copy buffer
-        auto&& copy_region = vk::BufferCopy(0, 0, size);
+        auto&& copy_region = vk::BufferCopy(alloc.m_offset, 0, size);
         command_buffer.copyBuffer(staging_buffer, buffer, copy_region);
 
         return Buffer{.m_buffer = buffer, .m_allocation = buffer_alloc};
@@ -165,32 +143,8 @@ namespace VKN {
         }
 
         // 1) Staging buffer
-        vk::Buffer staging_buffer{};
-        vma::Allocation staging_alloc{};
-        {
-            vk::BufferCreateInfo buffer_ci{
-                .size        = size_in_bytes,
-                .usage       = vk::BufferUsageFlagBits::eTransferSrc,
-                .sharingMode = vk::SharingMode::eExclusive,
-            };
-
-            vma::AllocationCreateInfo alloc_ci{};
-            alloc_ci.setUsage(vma::MemoryUsage::eAuto);
-            alloc_ci.setFlags(
-                vma::AllocationCreateFlagBits::eHostAccessSequentialWrite | vma::AllocationCreateFlagBits::eMapped);
-
-            vma::AllocationInfo alloc_info{};
-            std::tie(staging_alloc, staging_buffer) = vma_allocator.createBuffer(buffer_ci, alloc_ci, alloc_info);
-
-            std::memcpy(alloc_info.pMappedData, texture_data.m_data.data(), static_cast<size_t>(size_in_bytes));
-
-            // Keep staging alive until Resource_manager::destroy
-            m_staging_buffers.emplace_back(Buffer{
-                .m_buffer     = staging_buffer,
-                .m_allocation = staging_alloc,
-                .m_size       = static_cast<size_t>(size_in_bytes),
-            });
-        }
+        auto alloc = m_upload_scratch_allocator.allocate_and_copy(texture_data.m_data.data(), size_in_bytes, 16);
+        vk::Buffer staging_buffer{alloc.m_buffer};
 
         // 2) GPU image
         Texture tex{};
@@ -252,7 +206,7 @@ namespace VKN {
         // 4) Copy staging -> image
         {
             vk::BufferImageCopy copy_region{
-                .bufferOffset      = 0,
+                .bufferOffset      = alloc.m_offset,
                 .bufferRowLength   = 0,
                 .bufferImageHeight = 0,
                 .imageSubresource =

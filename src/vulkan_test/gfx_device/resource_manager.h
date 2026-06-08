@@ -1,6 +1,7 @@
 #pragma once
 
 #include "buffer.h"
+#include "common/scratch_allocator.h"
 
 namespace VKN {
 
@@ -8,8 +9,11 @@ namespace VKN {
 
     class Resource_manager {
       public:
+        friend class Device;
+        
         Resource_manager(Device& gfx_device)
             : m_gfx_device(gfx_device)
+            , m_upload_scratch_allocator(gfx_device, 16 * 1024 * 1024) // 16MB default page size for staging buffer
         {
         }
 
@@ -36,8 +40,7 @@ namespace VKN {
 
       private:
         Device& m_gfx_device;
-
-        std::vector<Buffer> m_staging_buffers;
+        Scratch_allocator m_upload_scratch_allocator;
 
         // Persistent resources
         std::unordered_map<std::string, Texture> m_textures;

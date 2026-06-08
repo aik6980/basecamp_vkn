@@ -649,7 +649,7 @@ namespace VKN {
         std::transform(vkb_swapchain_images.begin(),
             vkb_swapchain_images.end(),
             std::back_inserter(m_swapchain_images),
-            [](VkImage img) { return vk::Image(img); }); 
+            [](VkImage img) { return vk::Image(img); });
 
         auto&& vkb_swapchain_image_views = m_vkb_swapchain.get_image_views().value();
         std::transform(vkb_swapchain_image_views.begin(),
@@ -916,6 +916,9 @@ namespace VKN {
 
     void Device::begin_single_command_submission()
     {
+        // reset upload scratch for this single-submit batch
+        m_resource_manager->m_upload_scratch_allocator.reset();
+
         auto&& alloc_info = vk::CommandBufferAllocateInfo{
             .commandPool        = m_command_pool,
             .level              = vk::CommandBufferLevel::ePrimary,
@@ -941,6 +944,9 @@ namespace VKN {
         graphics_queue.submit(submit_info);
 
         graphics_queue.waitIdle();
+
+        // end of single-submit batch: reset upload scratch for next batch
+        m_resource_manager->m_upload_scratch_allocator.reset();
 
         m_device.freeCommandBuffers(m_command_pool, m_single_use_command_buffer);
     }
