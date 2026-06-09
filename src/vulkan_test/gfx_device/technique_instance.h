@@ -1,5 +1,7 @@
 #pragma once
 
+#include "common/scratch_allocator.h"
+
 namespace VKN {
     class Technique;
     struct Buffer;
@@ -21,7 +23,7 @@ namespace VKN {
 
         Technique& m_tech;
 
-        std::unordered_map<std::string, std::weak_ptr<Buffer>> m_constant_buffer_map;
+        std::unordered_map<std::string, ScratchAllocation> m_constant_buffer_map;
         std::unordered_map<std::string, std::string> m_uav_map;
         std::unordered_map<std::string, std::vector<std::string>> m_sampled_image_array_map;
         std::unordered_map<std::string, std::string> m_sampler_map;

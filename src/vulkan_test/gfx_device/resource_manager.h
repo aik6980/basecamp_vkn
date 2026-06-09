@@ -13,7 +13,7 @@ namespace VKN {
         
         Resource_manager(Device& gfx_device)
             : m_gfx_device(gfx_device)
-            , m_upload_scratch_allocator(gfx_device, 16 * 1024 * 1024) // 16MB default page size for staging buffer
+            , m_upload_scratch_allocator(gfx_device, 16 * 1024 * 1024, vk::BufferUsageFlagBits::eTransferSrc) // 16MB default page size for staging buffer
         {
         }
 

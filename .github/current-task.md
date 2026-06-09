@@ -85,28 +85,30 @@ Deliver frame graph v1 with one compute pass and one raster pass, while preparin
 - Wired submit-batch lifecycle: reset at begin_single_command_submission and after queue.waitIdle() in end_single_command_submission
 - Cleaned up old m_staging_buffers pattern—allocator now owns all transient upload pages
 
+**Frame Scratch Allocator + Constant Migration (Complete)**
+- Added per-frame Scratch_allocator in Frame_resource for transient descriptor payload data
+- Reset frame scratch and descriptor pool in frame_resource::begin_frame() after fence-safe frame begin
+- Migrated bind_constant_by_name to frame scratch suballocation path
+- Removed per-frame temporary constant-buffer ownership list from Frame_resource
+
 **Remaining Work**
-- Migrate transient constant buffer binding path to frame scratch allocator
 - Add storage buffer descriptor support in Technique_instance and Resource_manager
-- Per-frame scratch allocator reset during frame begin after fence wait
+- Replace hardcoded uniform-buffer alignment with device limit driven alignment
+- Add explicit alignment validation/asserts for uniform/storage descriptor offsets and ranges
+- Add scratch usage instrumentation (peak bytes per frame and per upload pass)
 
 ### Immediate Follow-up
-- **Priority 1: Per-Frame Scratch Allocator**
-  - Create Scratch_allocator instance for per-frame transient descriptor data
-  - Reset during frame_resource::begin_frame() after fence wait
-  - Verify alignment safety for uniform/storage buffer offset requirements
-
-- **Priority 2: Storage Buffer Support**
+- **Priority 1: Storage Buffer Support**
   - Add storage buffer bind path to Technique_instance (bind_storage_buffer_by_name)
   - Extend Resource_manager to support named persistent storage buffers
   - Validate descriptor offset/range alignment for storage buffer writes
 
-- **Priority 3: Frame-Local Constant Buffer Migration**
-  - Move bind_constant_by_name from per-call allocation to per-frame scratch suballocation
-  - Ensure descriptor payload lifetime stable through apply + bind window
-
-- **Priority 4: Validation & Instrumentation**
+- **Priority 2: Alignment Hardening**
+  - Query physical-device limits for uniform/storage alignment requirements
+  - Replace hardcoded alignment constants in frame-scratch constant binding
   - Add alignment assertions for scratch offset/range writes
+
+- **Priority 3: Validation & Instrumentation**
   - Add basic peak scratch usage stats (bytes per upload batch, bytes per frame)
   - Add startup reflection assertions for compute binding names and descriptor types
 

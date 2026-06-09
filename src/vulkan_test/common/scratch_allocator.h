@@ -5,20 +5,20 @@
 namespace VKN {
     class Device;
 
+    struct ScratchAllocation {
+        vk::Buffer m_buffer{};
+        vk::DeviceSize m_offset = 0;
+        void* m_mapped_ptr      = nullptr;
+        vk::DeviceSize m_size   = 0;
+    };
+
     class Scratch_allocator {
       public:
-        struct Allocation {
-            vk::Buffer m_buffer{};
-            vk::DeviceSize m_offset = 0;
-            void* m_mapped_ptr      = nullptr;
-            vk::DeviceSize m_size   = 0;
-        };
-
-        Scratch_allocator(Device& gfx_device, vk::DeviceSize default_page_size);
+        Scratch_allocator(Device& gfx_device, vk::DeviceSize default_page_size, vk::BufferUsageFlags usage_flags);
         ~Scratch_allocator();
 
-        Allocation allocate(vk::DeviceSize size, vk::DeviceSize alignment = 16);
-        Allocation allocate_and_copy(const void* src, vk::DeviceSize size, vk::DeviceSize alignment = 16);
+        ScratchAllocation allocate(vk::DeviceSize size, vk::DeviceSize alignment = 16);
+        ScratchAllocation allocate_and_copy(const void* src, vk::DeviceSize size, vk::DeviceSize alignment = 16);
 
         void reset();
         void destroy();
@@ -35,6 +35,7 @@ namespace VKN {
 
         Device& m_gfx_device;
         vk::DeviceSize m_default_page_size = 0;
+        vk::BufferUsageFlags m_usage_flags;
         std::vector<Page> m_pages;
     };
 } // namespace VKN

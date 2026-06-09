@@ -1,6 +1,7 @@
 #include "scratch_allocator.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstring>
 #include <stdexcept>
 
@@ -19,10 +20,12 @@ namespace VKN {
         }
     } // namespace
 
-    Scratch_allocator::Scratch_allocator(Device& gfx_device, vk::DeviceSize default_page_size)
+    Scratch_allocator::Scratch_allocator(Device& gfx_device, vk::DeviceSize default_page_size, vk::BufferUsageFlags usage_flags)
         : m_gfx_device(gfx_device)
         , m_default_page_size(std::max<vk::DeviceSize>(default_page_size, 1024))
+        , m_usage_flags(usage_flags)    
     {
+        assert(m_usage_flags != vk::BufferUsageFlags{});
     }
 
     Scratch_allocator::~Scratch_allocator() { destroy(); }
@@ -35,7 +38,7 @@ namespace VKN {
 
         vk::BufferCreateInfo buffer_ci{
             .size        = capacity,
-            .usage       = vk::BufferUsageFlagBits::eTransferSrc,
+            .usage       = m_usage_flags,
             .sharingMode = vk::SharingMode::eExclusive,
         };
 
@@ -63,7 +66,7 @@ namespace VKN {
         return m_pages.back();
     }
 
-    Scratch_allocator::Allocation Scratch_allocator::allocate(vk::DeviceSize size, vk::DeviceSize alignment)
+    ScratchAllocation Scratch_allocator::allocate(vk::DeviceSize size, vk::DeviceSize alignment)
     {
         if (size == 0) {
             return {};
@@ -81,7 +84,7 @@ namespace VKN {
                 continue;
             }
 
-            Scratch_allocator::Allocation out{};
+            ScratchAllocation out{};
             out.m_buffer     = page.m_buffer.m_buffer;
             out.m_offset     = aligned_head;
             out.m_mapped_ptr = static_cast<uint8_t*>(page.m_mapped_ptr) + aligned_head;
@@ -94,7 +97,7 @@ namespace VKN {
         auto& new_page                    = create_page(size + alignment);
         const vk::DeviceSize aligned_head = align_up(new_page.m_head, alignment);
 
-        Scratch_allocator::Allocation out{};
+        ScratchAllocation out{};
         out.m_buffer     = new_page.m_buffer.m_buffer;
         out.m_offset     = aligned_head;
         out.m_mapped_ptr = static_cast<uint8_t*>(new_page.m_mapped_ptr) + aligned_head;
@@ -104,14 +107,14 @@ namespace VKN {
         return out;
     }
 
-    Scratch_allocator::Allocation Scratch_allocator::allocate_and_copy(
+    ScratchAllocation Scratch_allocator::allocate_and_copy(
         const void* src, vk::DeviceSize size, vk::DeviceSize alignment)
     {
         if (!src || size == 0) {
             return {};
         }
 
-        Allocation out = allocate(size, alignment);
+        ScratchAllocation out = allocate(size, alignment);
         if (!out.m_mapped_ptr) {
             throw std::runtime_error("Scratch_allocator allocation failed.");
         }

@@ -8,11 +8,7 @@ namespace VKN {
     {
         auto&& resource_manager = m_gfx_device.m_resource_manager;
 
-        for (auto&& buffer : m_buffers) {
-            resource_manager->destroy_buffer(*buffer);
-        }
-        m_buffers.clear();
-
+        m_frame_scratch_allocator.destroy();
         m_descriptor_pool.destroy_resources();
     }
 
@@ -20,11 +16,7 @@ namespace VKN {
     {
         auto&& resource_manager = m_gfx_device.m_resource_manager;
 
-        for (auto&& buffer : m_buffers) {
-            resource_manager->destroy_buffer(*buffer);
-        }
-        m_buffers.clear();
-
+        m_frame_scratch_allocator.reset();
         m_descriptor_pool.reset();
 
         m_command_buffer.reset();

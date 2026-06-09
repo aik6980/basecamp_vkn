@@ -22,9 +22,12 @@ namespace VKN {
         auto&& resource_manager = m_tech.m_gfx_device.m_resource_manager;
         auto&& frame_resource   = m_tech.m_gfx_device.curr_frame_resource();
 
-        auto&& buffer = std::make_shared<Buffer>(resource_manager->create_constant_buffer(data, size));
-        frame_resource.m_buffers.emplace_back(buffer);
-        m_constant_buffer_map[reflected_name] = buffer;
+        auto&& allocation = frame_resource.frame_scratch_allocator().allocate_and_copy(data, size, 256u); // 256 byte alignment is required for uniform buffers
+        if (!allocation.m_buffer) {
+            return false;
+        }
+
+        m_constant_buffer_map[reflected_name] = allocation;
 
         return true;
     }
@@ -173,14 +176,9 @@ namespace VKN {
             return pending;
         };
 
-        for (const auto& [reflected_name, weak_buffer] : m_constant_buffer_map) {
+        for (const auto& [reflected_name, allocation] : m_constant_buffer_map) {
             const auto* reflected = find_binding_checked(m_tech, reflected_name, vk::DescriptorType::eUniformBuffer);
             if (!reflected) {
-                return false;
-            }
-
-            auto buffer = weak_buffer.lock();
-            if (!buffer) {
                 return false;
             }
 
@@ -188,9 +186,9 @@ namespace VKN {
 
             const size_t start = pending.buffer_infos.size();
             pending.buffer_infos.push_back(vk::DescriptorBufferInfo{
-                .buffer = buffer->m_buffer,
-                .offset = 0,
-                .range  = VK_WHOLE_SIZE,
+                .buffer = allocation.m_buffer,
+                .offset = allocation.m_offset,
+                .range  = allocation.m_size,
             });
 
             pending.plans.push_back(Pending_write_plan{
