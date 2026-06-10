@@ -5,7 +5,7 @@
 namespace VKN {
 
 	struct Buffer_create_info {
-		vk::BufferUsageFlagBits m_usage_flags;
+		vk::BufferUsageFlags m_usage_flags;
 
 		const void* m_data = nullptr;
 		size_t		m_size;

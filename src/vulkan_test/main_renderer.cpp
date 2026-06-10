@@ -34,7 +34,7 @@ void Main_renderer::draw()
 
             auto&& technique_instance = VKN::Technique_instance(*technique);
 
-            const bool bind_ok = technique_instance.bind_uav_by_name("ColourTex_uav", "t_compute_output");
+            const bool bind_ok = technique_instance.bind_storage_image_by_name("ColourTex_uav", "t_compute_output");
 
             // create a helper functio for following steps as they are common for both compute and raster techniques:
             // 1. bind pipeline

@@ -15,20 +15,30 @@ namespace VKN {
         }
 
         if (reflected->m_descriptor_type != vk::DescriptorType::eUniformBuffer) {
-            // Current descriptor pool only supports uniform buffers.
             return false;
         }
 
-        auto&& resource_manager = m_tech.m_gfx_device.m_resource_manager;
-        auto&& frame_resource   = m_tech.m_gfx_device.curr_frame_resource();
+        if (!data || size == 0) {
+            return false;
+        }
 
-        auto&& allocation = frame_resource.frame_scratch_allocator().allocate_and_copy(data, size, 256u); // 256 byte alignment is required for uniform buffers
+        auto&& frame_resource = m_tech.m_gfx_device.curr_frame_resource();
+
+        const vk::PhysicalDeviceProperties props = m_tech.m_gfx_device.m_physical_device.getProperties();
+        const vk::DeviceSize required_alignment =
+            std::max<vk::DeviceSize>(16u, static_cast<vk::DeviceSize>(props.limits.minUniformBufferOffsetAlignment));
+
+        auto allocation = frame_resource.frame_scratch_allocator().allocate_and_copy(
+            data, static_cast<vk::DeviceSize>(size), required_alignment);
+
         if (!allocation.m_buffer) {
             return false;
         }
 
-        m_constant_buffer_map[reflected_name] = allocation;
+        assert((allocation.m_offset % required_alignment) == 0);
+        assert(allocation.m_size >= static_cast<vk::DeviceSize>(size));
 
+        m_constant_buffer_map[reflected_name] = allocation;
         return true;
     }
 
@@ -73,18 +83,34 @@ namespace VKN {
         return true;
     }
 
-    bool Technique_instance::bind_uav_by_name(const std::string& reflected_name, const std::string& uav_name)
+    bool Technique_instance::bind_storage_image_by_name(const std::string& reflected_name, const std::string& texture_name)
     {
         const auto* reflected = m_tech.find_binding(reflected_name);
         if (!reflected)
             return false;
 
-        const bool is_storage_image  = reflected->m_descriptor_type == vk::DescriptorType::eStorageImage;
-        const bool is_storage_buffer = reflected->m_descriptor_type == vk::DescriptorType::eStorageBuffer;
-        if (!is_storage_image && !is_storage_buffer)
+        if (reflected->m_descriptor_type != vk::DescriptorType::eStorageImage) {
             return false;
+        }
 
-        m_uav_map[reflected_name] = uav_name;
+        m_storage_image_map[reflected_name] = texture_name;
+        return true;
+    }
+
+    bool Technique_instance::bind_storage_buffer_by_name(const std::string& reflected_name, const std::string& buffer_name)
+    {
+        const auto* reflected = m_tech.find_binding(reflected_name);
+        if (!reflected) {
+            return false;
+        }
+        if (reflected->m_descriptor_type != vk::DescriptorType::eStorageBuffer) {
+            return false;
+        }
+        if (buffer_name.empty()) {
+            return false;
+        }
+
+        m_storage_buffer_map[reflected_name] = buffer_name;
         return true;
     }
 
@@ -259,7 +285,7 @@ namespace VKN {
             });
         }
 
-        for (const auto& [reflected_name, uav_name] : m_uav_map) {
+        for (const auto& [reflected_name, uav_name] : m_storage_image_map) {
             const auto* reflected = m_tech.find_binding(reflected_name);
             if (!reflected) {
                 return false;
@@ -285,13 +311,38 @@ namespace VKN {
                     .start_index      = start,
                 });
             }
-            else if (reflected->m_descriptor_type == vk::DescriptorType::eStorageBuffer) {
-                // TODO: add named storage-buffer registry/lookup in Resource_manager.
-                return false;
-            }
             else {
                 return false;
             }
+        }
+
+        for (const auto& [reflected_name, buffer_name] : m_storage_buffer_map) {
+            const auto* reflected = find_binding_checked(m_tech, reflected_name, vk::DescriptorType::eStorageBuffer);
+            if (!reflected) {
+                return false;
+            }
+
+            auto storage_buffer = resource_manager->get_storage_buffer(buffer_name);
+            if (!storage_buffer.m_buffer || storage_buffer.m_size == 0) {
+                return false;
+            }
+
+            auto& pending = ensure_set_allocated(reflected->m_set_layout_index, 0);
+
+            const size_t start = pending.buffer_infos.size();
+            pending.buffer_infos.push_back(vk::DescriptorBufferInfo{
+                .buffer = storage_buffer.m_buffer,
+                .offset = 0,
+                .range  = static_cast<vk::DeviceSize>(storage_buffer.m_size),
+            });
+
+            pending.plans.push_back(Pending_write_plan{
+                .kind             = Pending_write_kind::Buffer,
+                .binding          = reflected->m_binding_number,
+                .descriptor_type  = vk::DescriptorType::eStorageBuffer,
+                .descriptor_count = 1,
+                .start_index      = start,
+            });
         }
 
         //  update all decriptor sets

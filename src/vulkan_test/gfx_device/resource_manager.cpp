@@ -32,6 +32,11 @@ namespace VKN {
             }
         }
         m_textures.clear();
+
+        for (auto&& [name, buffer] : m_storage_buffers) {
+            destroy_buffer(buffer);
+        }
+        m_storage_buffers.clear();
     }
 
     void Resource_manager::create_mesh()
@@ -121,6 +126,31 @@ namespace VKN {
 
         return Buffer{
             .m_buffer = buffer, .m_allocation = buffer_alloc, .m_size = static_cast<size_t>(buffer_alloc_info.size)};
+    }
+
+    void Resource_manager::create_storage_buffer(
+        const std::string& name, const void* data, size_t size, vk::BufferUsageFlags additional_usage_flags)
+    {
+        if (!data || size == 0) {
+            return;
+        }
+
+        const auto usage = vk::BufferUsageFlagBits::eStorageBuffer | additional_usage_flags;
+
+        Buffer buffer = create_buffer(Buffer_create_info{
+            .m_usage_flags = usage,
+            .m_data        = data,
+            .m_size        = size,
+        });
+
+        m_storage_buffers[name] = buffer;
+    }
+
+    Buffer Resource_manager::get_storage_buffer(const std::string& name) const
+    {
+        auto it = m_storage_buffers.find(name);
+        assert(it != m_storage_buffers.end());
+        return it->second;
     }
 
     void Resource_manager::create_texture(
