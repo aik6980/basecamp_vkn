@@ -1,1 +1,16 @@
-{}
+{
+  "files.associations": {
+    "*.hlsl": "hlsl",
+    "*.cs.hlsl": "hlsl",
+    "*.ps.hlsl": "hlsl",
+    "*.vs.hlsl": "hlsl",
+    "*.ray.hlsl": "hlsl",
+    "*.ras.hlsl": "hlsl"
+  },
+  "[hlsl]": {
+    "editor.defaultFormatter": "moowiz.clang-format-moowiz-fork",
+    "editor.formatOnSave": true
+  },
+  "clang-format.style": "file",
+  "clang-format.fallbackStyle": "LLVM"
+}
