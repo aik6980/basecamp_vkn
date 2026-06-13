@@ -1,7 +1,5 @@
 #include "framegraph.h"
 
-#include "framegraph.h"
-
 #include <algorithm>
 #include <queue>
 
@@ -28,6 +26,7 @@ bool Frame_graph::is_hazard(const ResourceUse& a, const ResourceUse& b)
 
 void Frame_graph::compile()
 {
+    // Rebuild derived graph data from current pass declarations.
     m_execution_order.clear();
     m_edges.clear();
 
@@ -35,6 +34,9 @@ void Frame_graph::compile()
     std::vector<uint32_t> indegree(n, 0);
     std::vector<std::vector<uint32_t>> adjacency(n);
 
+    // Build dependency edges from resource hazards:
+    // - different resources: no dependency
+    // - same resource + at least one write: ordering required
     for (uint32_t i = 0; i < n; ++i) {
         auto collect_a = m_passes[i].reads;
         collect_a.insert(collect_a.end(), m_passes[i].writes.begin(), m_passes[i].writes.end());
@@ -49,17 +51,22 @@ void Frame_graph::compile()
                     if (!is_hazard(ua, ub)) {
                         continue;
                     }
+
+                    // One topological edge per pass pair is enough for ordering.
+                    // Detailed per-resource hazards are still recorded in m_edges for barriers.
                     if (!linked) {
                         adjacency[i].push_back(j);
                         indegree[j] += 1;
                         linked = true;
                     }
+
                     m_edges.push_back(Edge{i, j, ua, ub});
                 }
             }
         }
     }
 
+    // Kahn topological sort to generate execution order.
     std::queue<uint32_t> q;
     for (uint32_t i = 0; i < n; ++i) {
         if (indegree[i] == 0) {
@@ -80,7 +87,9 @@ void Frame_graph::compile()
         }
     }
 
+    // Fallback for cycles: preserve declared order so execution remains deterministic.
     if (m_execution_order.size() != n) {
+        assert(false && "Frame_graph::compile produced incomplete topological order");
         m_execution_order.clear();
         for (uint32_t i = 0; i < n; ++i) {
             m_execution_order.push_back(i);
@@ -90,10 +99,12 @@ void Frame_graph::compile()
 
 void Frame_graph::execute(vk::CommandBuffer& cmd)
 {
+    // Lazily compile if graph changed or has not been compiled yet.
     if (m_execution_order.empty()) {
         compile();
     }
 
+    // Map pass id -> scheduled rank for quick dependency validity checks.
     std::unordered_map<uint32_t, uint32_t> pass_rank;
     for (uint32_t i = 0; i < static_cast<uint32_t>(m_execution_order.size()); ++i) {
         pass_rank[m_execution_order[i]] = i;
@@ -102,6 +113,8 @@ void Frame_graph::execute(vk::CommandBuffer& cmd)
     for (uint32_t order_i = 0; order_i < static_cast<uint32_t>(m_execution_order.size()); ++order_i) {
         const uint32_t pass_id = m_execution_order[order_i];
 
+        // Emit memory barriers for hazards targeting this pass, but only when
+        // the producer is truly earlier in the scheduled order.
         for (const auto& e : m_edges) {
             if (e.to != pass_id) {
                 continue;
@@ -124,6 +137,7 @@ void Frame_graph::execute(vk::CommandBuffer& cmd)
             cmd.pipelineBarrier2(dep);
         }
 
+        // Execute pass body after all incoming hazards for this pass are synchronized.
         auto& pass = m_passes[pass_id];
         if (pass.execute) {
             pass.execute(cmd);
