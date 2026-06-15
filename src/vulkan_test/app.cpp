@@ -125,4 +125,6 @@ void App::create_scene()
 
     // create mesh
     // resource_manager->create_mesh();
+
+    main_renderer.load_resource();
 }

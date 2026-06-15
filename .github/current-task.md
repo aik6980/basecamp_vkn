@@ -1,8 +1,3 @@
-## Interim task
-- Finish compute plumbing before building a larger scene system
-- Keep any scene work minimal and only to remove hardcoded demo setup
-- Do not start a full scene graph or ray tracing scene manager yet
-
 ## Main Goal
 Deliver frame graph v1 with one compute pass and one raster pass, while preparing a minimal flattened render-scene data path for later GPU scene and ray tracing work, and introducing a scratch allocator path for transient uploads and per-frame descriptor data.
 
@@ -77,7 +72,7 @@ Deliver frame graph v1 with one compute pass and one raster pass, while preparin
 - Added compute shader support in Technique and Shader_manager registration flow
 - Added compute pipeline creation and command dispatch path
 - Validated reflected compute resource binding by name for UAV path
-### Phase 2: Descriptor Expansion + Scratch Allocator (Status: In Progress)
+### Phase 2: Descriptor Expansion + Scratch Allocator (Status: Done)
 **Upload Scratch Allocator (Complete)**
 - Added Scratch_allocator class with multi-page linear allocation and reuse pattern
 - Integrated allocator into Resource_manager (16MB default page size)
@@ -91,34 +86,36 @@ Deliver frame graph v1 with one compute pass and one raster pass, while preparin
 - Migrated bind_constant_by_name to frame scratch suballocation path
 - Removed per-frame temporary constant-buffer ownership list from Frame_resource
 
-**Remaining Work**
-- Add storage buffer descriptor support in Technique_instance and Resource_manager
-- Replace hardcoded uniform-buffer alignment with device limit driven alignment
-- Add explicit alignment validation/asserts for uniform/storage descriptor offsets and ranges
-- Add scratch usage instrumentation (peak bytes per frame and per upload pass)
-
-### Immediate Follow-up
-- **Priority 1: Storage Buffer Support**
-  - Add storage buffer bind path to Technique_instance (bind_storage_buffer_by_name)
-  - Extend Resource_manager to support named persistent storage buffers
-  - Validate descriptor offset/range alignment for storage buffer writes
-
-- **Priority 2: Alignment Hardening**
-  - Query physical-device limits for uniform/storage alignment requirements
-  - Replace hardcoded alignment constants in frame-scratch constant binding
-  - Add alignment assertions for scratch offset/range writes
-
-- **Priority 3: Validation & Instrumentation**
-  - Add basic peak scratch usage stats (bytes per upload batch, bytes per frame)
-  - Add startup reflection assertions for compute binding names and descriptor types
-
-- Remove hardcoded compute dispatch texture size and query dimensions from the target texture
-- Add runtime toggle between compute output and static sampled texture for debugging
-
-### Phase 3: Minimal Frame Graph
+### Phase 3: Minimal Frame Graph (Status: In progress)
 - Add compute and raster pass descriptions
 - Add transient resource model
 - Execute passes in dependency order
+
+**Current Task: Frame Graph Transition Ownership**
+- Promote frame graph from ordering-only to ordering plus transition management for graph-managed resources.
+
+**Scope**
+- Add image transition metadata to frame-graph edge handling and emit image barriers during execute.
+- Keep pass execute lambdas focused on pipeline bind and draw/dispatch only.
+- Remove manual transitions for t_compute_output from pass code.
+- Keep swapchain and final blit transitions outside frame graph in this phase.
+
+**Definition of Done**
+- Compute pass writes t_compute_output and raster pass samples it without manual transitions inside those pass lambdas.
+- Frame graph emits correct synchronization and layout transitions for graph-managed image resources.
+- No new Vulkan validation errors.
+- Existing resize/minimize/restore behavior is unchanged.
+
+**Non-Goals (This Step)**
+- Full transient resource allocator inside frame graph.
+- Multi-queue scheduling.
+- Full swapchain present-path ownership by frame graph.
+
+**Implementation Order**
+1. Extend frame graph resource-use metadata in framegraph data model.
+2. Add image-barrier emission path in execute from declared hazards.
+3. Refactor main renderer pass lambdas to remove manual compute-output transitions.
+4. Validate runtime behavior and validation-layer cleanliness.
 
 ### Phase 4: Demo
 - Compute writes pattern or test result into texture
