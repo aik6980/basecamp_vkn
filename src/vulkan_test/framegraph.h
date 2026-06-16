@@ -29,7 +29,6 @@ struct ResourceUse {
 
 struct PassNode {
     std::string name;
-    PassType type = PassType::Raster;
     std::vector<ResourceUse> reads;
     std::vector<ResourceUse> writes;
     std::function<void(vk::CommandBuffer&)> execute;

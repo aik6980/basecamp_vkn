@@ -114,6 +114,17 @@ void Frame_graph::execute(vk::CommandBuffer& cmd)
             // Default-insert gives eUndefined/eNone/eTopOfPipe — valid as barrier src.
             auto& cached = m_resource_state_cache[use.resource_id];
 
+            // Resource IDs can point to different images across frames (swapchain rotation/resize).
+// If handle changes, reset cached state so a fresh transition is emitted.
+if (use.is_image && cached.is_image && cached.image && cached.image != use.image) {
+    cached.layout      = vk::ImageLayout::eUndefined;
+    cached.access      = vk::AccessFlagBits2::eNone;
+    cached.stage       = vk::PipelineStageFlagBits2::eTopOfPipe;
+    cached.image       = use.image;
+    cached.image_range = use.image_range;
+    cached.is_image    = true;
+}
+
             const bool layout_changed = cached.layout != use.layout;
             const bool access_changed = cached.access != use.access;
 
