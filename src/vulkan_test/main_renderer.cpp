@@ -23,31 +23,32 @@ void Main_renderer::draw()
 
     // local resource id:
     constexpr uint32_t kResComputeOutput = 1;
+    constexpr uint32_t kResRenderTarget  = 2;
 
+    auto&& compute_output_texture = Gfx_main::resource_manager().get_texture("t_compute_output");
     // Add compute pass:
     PassNode compute_pass;
     compute_pass.name = "compute_write_uav";
     compute_pass.type = PassType::Compute;
-    compute_pass.writes.push_back(ResourceUse{.resource_id = kResComputeOutput,
-        .is_write                                          = true,
-        .layout                                            = vk::ImageLayout::eGeneral,
-        .access                                            = vk::AccessFlagBits2::eShaderStorageWrite,
-        .stage                                             = vk::PipelineStageFlagBits2::eComputeShader});
+    compute_pass.writes.push_back(ResourceUse{
+        .resource_id = kResComputeOutput,
+        .is_write    = true,
+        .layout      = vk::ImageLayout::eGeneral,
+        .access      = vk::AccessFlagBits2::eShaderStorageWrite,
+        .stage       = vk::PipelineStageFlagBits2::eComputeShader,
+        .is_image    = true,
+        .image       = compute_output_texture.m_image,
+        .image_range =
+            vk::ImageSubresourceRange{
+                .aspectMask     = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel   = 0,
+                .levelCount     = 1,
+                .baseArrayLayer = 0,
+                .layerCount     = 1,
+            },
+    });
 
     compute_pass.execute = [&](vk::CommandBuffer& cmd) {
-        // manual call image layout transition for the UAV texture for now - Todo: add a helper function to the frame
-        // graph to handle this automatically
-        auto&& compute_output_texture = Gfx_main::resource_manager().get_texture("t_compute_output");
-        gfx_device.transition_image_layout(compute_output_texture.m_image,
-            VKN::Device::Transition_image_layout_info{
-                .dst_layout       = vk::ImageLayout::eGeneral,
-                .src_layout       = vk::ImageLayout::eShaderReadOnlyOptimal,
-                .dst_access_flags = vk::AccessFlagBits2::eShaderStorageWrite,
-                .src_access_flags = vk::AccessFlagBits2::eShaderSampledRead,
-                .dst_stage_flags  = vk::PipelineStageFlagBits2::eComputeShader,
-                .src_stage_flags  = vk::PipelineStageFlagBits2::eFragmentShader,
-            });
-
         auto&& technique = shader_manager.get_technique("test/uav_resource").lock();
         if (technique) {
             auto&& technique_instance = VKN::Technique_instance(*technique);
@@ -62,21 +63,10 @@ void Main_renderer::draw()
             assert(bind_ok && apply_ok);
 
             // 2. dispatch compute shader with enough thread groups to cover the entire output texture
-            auto&& compute_output_texture = Gfx_main::resource_manager().get_texture("t_compute_output");
-            const auto group_count_x      = (compute_output_texture.m_width + 7) / 8;
-            const auto group_count_y      = (compute_output_texture.m_height + 7) / 8;
+            const auto group_count_x = (compute_output_texture.m_width + 7) / 8;
+            const auto group_count_y = (compute_output_texture.m_height + 7) / 8;
             cmd.dispatch(group_count_x, group_count_y, 1);
         }
-
-        gfx_device.transition_image_layout(compute_output_texture.m_image,
-            VKN::Device::Transition_image_layout_info{
-                .dst_layout       = vk::ImageLayout::eShaderReadOnlyOptimal,
-                .src_layout       = vk::ImageLayout::eGeneral,
-                .dst_access_flags = vk::AccessFlagBits2::eShaderSampledRead,
-                .src_access_flags = vk::AccessFlagBits2::eShaderStorageWrite,
-                .dst_stage_flags  = vk::PipelineStageFlagBits2::eFragmentShader,
-                .src_stage_flags  = vk::PipelineStageFlagBits2::eComputeShader,
-            });
     };
 
     m_frame_graph->add_pass(compute_pass);
@@ -85,13 +75,43 @@ void Main_renderer::draw()
     PassNode raster_pass;
     raster_pass.name = "raster_sample_uav_result";
     raster_pass.type = PassType::Raster;
-    raster_pass.reads.push_back(ResourceUse{.resource_id = kResComputeOutput,
-        .is_write                                        = false,
-        .layout                                          = vk::ImageLayout::eShaderReadOnlyOptimal,
-        .access                                          = vk::AccessFlagBits2::eShaderSampledRead,
-        .stage                                           = vk::PipelineStageFlagBits2::eFragmentShader});
+    raster_pass.reads.push_back(ResourceUse{
+        .resource_id = kResComputeOutput,
+        .is_write    = false,
+        .layout      = vk::ImageLayout::eShaderReadOnlyOptimal,
+        .access      = vk::AccessFlagBits2::eShaderSampledRead,
+        .stage       = vk::PipelineStageFlagBits2::eFragmentShader,
+        .is_image    = true,
+        .image       = compute_output_texture.m_image,
+        .image_range =
+            vk::ImageSubresourceRange{
+                .aspectMask     = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel   = 0,
+                .levelCount     = 1,
+                .baseArrayLayer = 0,
+                .layerCount     = 1,
+            },
+    });
 
-    auto&& render_target_image      = gfx_device.offscreen_colour_image();
+    auto&& render_target_image = gfx_device.offscreen_colour_image();
+    raster_pass.writes.push_back(ResourceUse{
+        .resource_id = kResRenderTarget,
+        .is_write    = true,
+        .layout      = vk::ImageLayout::eColorAttachmentOptimal,
+        .access      = vk::AccessFlagBits2::eColorAttachmentWrite,
+        .stage       = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        .is_image    = true,
+        .image       = render_target_image,
+        .image_range =
+            vk::ImageSubresourceRange{
+                .aspectMask     = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel   = 0,
+                .levelCount     = 1,
+                .baseArrayLayer = 0,
+                .layerCount     = 1,
+            },
+    });
+
     auto&& render_target_image_view = gfx_device.offscreen_colour_image_view();
     auto&& depth_target_image       = gfx_device.backbuffer_depth_image();
     raster_pass.execute             = [&](vk::CommandBuffer& cmd) {

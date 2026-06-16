@@ -3,17 +3,28 @@
 #include <cstdint>
 #include <functional>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 enum class PassType { Compute, Raster };
 
 struct ResourceUse {
-    uint32_t resource_id = 0;
-    bool is_write = false;
-    vk::ImageLayout layout = vk::ImageLayout::eUndefined;
-    vk::AccessFlags2 access = vk::AccessFlagBits2::eNone;
+    uint32_t resource_id          = 0;
+    bool is_write                 = false;
+    vk::ImageLayout layout        = vk::ImageLayout::eUndefined;
+    vk::AccessFlags2 access       = vk::AccessFlagBits2::eNone;
     vk::PipelineStageFlags2 stage = vk::PipelineStageFlagBits2::eTopOfPipe;
+
+    // Optional image metadata for layout/barrier ownership.
+    bool is_image   = false;
+    vk::Image image = {};
+    vk::ImageSubresourceRange image_range{
+        .aspectMask     = vk::ImageAspectFlagBits::eColor,
+        .baseMipLevel   = 0,
+        .levelCount     = 1,
+        .baseArrayLayer = 0,
+        .layerCount     = 1,
+    };
 };
 
 struct PassNode {
@@ -34,7 +45,7 @@ class Frame_graph {
   private:
     struct Edge {
         uint32_t from = 0;
-        uint32_t to = 0;
+        uint32_t to   = 0;
         ResourceUse from_use{};
         ResourceUse to_use{};
     };
@@ -43,5 +54,8 @@ class Frame_graph {
 
     std::vector<PassNode> m_passes;
     std::vector<uint32_t> m_execution_order;
-    std::vector<Edge> m_edges;
+
+    // Resource state cache: survives clear() for cross-frame tracking.
+    // Default-inserted entry has layout=eUndefined which is always valid as oldLayout.
+    std::unordered_map<uint32_t, ResourceUse> m_resource_state_cache;
 };

@@ -7,7 +7,7 @@ void Frame_graph::clear()
 {
     m_passes.clear();
     m_execution_order.clear();
-    m_edges.clear();
+    // m_resource_state_cache intentionally kept for cross-frame state tracking
 }
 
 uint32_t Frame_graph::add_pass(PassNode pass)
@@ -28,7 +28,6 @@ void Frame_graph::compile()
 {
     // Rebuild derived graph data from current pass declarations.
     m_execution_order.clear();
-    m_edges.clear();
 
     const uint32_t n = static_cast<uint32_t>(m_passes.size());
     std::vector<uint32_t> indegree(n, 0);
@@ -45,23 +44,22 @@ void Frame_graph::compile()
             auto collect_b = m_passes[j].reads;
             collect_b.insert(collect_b.end(), m_passes[j].writes.begin(), m_passes[j].writes.end());
 
-            bool linked = false;
+            // Check if any resource usage conflicts between pass i and j.
+            bool has_hazard = false;
             for (const auto& ua : collect_a) {
                 for (const auto& ub : collect_b) {
-                    if (!is_hazard(ua, ub)) {
-                        continue;
+                    if (is_hazard(ua, ub)) {
+                        has_hazard = true;
+                        break;
                     }
-
-                    // One topological edge per pass pair is enough for ordering.
-                    // Detailed per-resource hazards are still recorded in m_edges for barriers.
-                    if (!linked) {
-                        adjacency[i].push_back(j);
-                        indegree[j] += 1;
-                        linked = true;
-                    }
-
-                    m_edges.push_back(Edge{i, j, ua, ub});
                 }
+                if (has_hazard)
+                    break; // Early exit both loops.
+            }
+
+            if (has_hazard) {
+                adjacency[i].push_back(j);
+                indegree[j] += 1;
             }
         }
     }
@@ -104,41 +102,46 @@ void Frame_graph::execute(vk::CommandBuffer& cmd)
         compile();
     }
 
-    // Map pass id -> scheduled rank for quick dependency validity checks.
-    std::unordered_map<uint32_t, uint32_t> pass_rank;
-    for (uint32_t i = 0; i < static_cast<uint32_t>(m_execution_order.size()); ++i) {
-        pass_rank[m_execution_order[i]] = i;
-    }
-
     for (uint32_t order_i = 0; order_i < static_cast<uint32_t>(m_execution_order.size()); ++order_i) {
         const uint32_t pass_id = m_execution_order[order_i];
+        auto& pass             = m_passes[pass_id];
 
-        // Emit memory barriers for hazards targeting this pass, but only when
-        // the producer is truly earlier in the scheduled order.
-        for (const auto& e : m_edges) {
-            if (e.to != pass_id) {
-                continue;
+        // Collect all resource uses for this pass.
+        auto all_uses = pass.reads;
+        all_uses.insert(all_uses.end(), pass.writes.begin(), pass.writes.end());
+
+        for (const auto& use : all_uses) {
+            // Default-insert gives eUndefined/eNone/eTopOfPipe — valid as barrier src.
+            auto& cached = m_resource_state_cache[use.resource_id];
+
+            const bool layout_changed = cached.layout != use.layout;
+            const bool access_changed = cached.access != use.access;
+
+            if ((layout_changed || access_changed) && use.is_image && use.image) {
+                vk::ImageMemoryBarrier2 image_barrier{
+                    .srcStageMask        = cached.stage,
+                    .srcAccessMask       = cached.access,
+                    .dstStageMask        = use.stage,
+                    .dstAccessMask       = use.access,
+                    .oldLayout           = cached.layout,
+                    .newLayout           = use.layout,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .image               = use.image,
+                    .subresourceRange    = use.image_range,
+                };
+                vk::DependencyInfo dep{
+                    .imageMemoryBarrierCount = 1,
+                    .pImageMemoryBarriers    = &image_barrier,
+                };
+                cmd.pipelineBarrier2(dep);
             }
-            if (pass_rank[e.from] >= pass_rank[e.to]) {
-                continue;
-            }
 
-            vk::MemoryBarrier2 barrier{
-                .srcStageMask  = e.from_use.stage,
-                .srcAccessMask = e.from_use.access,
-                .dstStageMask  = e.to_use.stage,
-                .dstAccessMask = e.to_use.access,
-            };
-
-            vk::DependencyInfo dep{
-                .memoryBarrierCount = 1,
-                .pMemoryBarriers    = &barrier,
-            };
-            cmd.pipelineBarrier2(dep);
+            // Update cache to reflect what this pass leaves the resource in.
+            cached = use;
         }
 
         // Execute pass body after all incoming hazards for this pass are synchronized.
-        auto& pass = m_passes[pass_id];
         if (pass.execute) {
             pass.execute(cmd);
         }
