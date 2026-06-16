@@ -86,43 +86,55 @@ Deliver frame graph v1 with one compute pass and one raster pass, while preparin
 - Migrated bind_constant_by_name to frame scratch suballocation path
 - Removed per-frame temporary constant-buffer ownership list from Frame_resource
 
-### Phase 3: Minimal Frame Graph (Status: In progress)
-- Add compute and raster pass descriptions
-- Add transient resource model
-- Execute passes in dependency order
+### Phase 3: Minimal Frame Graph (Status: Done)
+- Added compute/raster pass descriptions with explicit read/write declarations
+- Added graph-managed image transitions via image barrier emission
+- Added resource state cache and hardening for image-handle changes (swapchain rotation/resize)
+- Added graph-owned blit and present transition flow for swapchain path consistency
+- Validated normal frame loop and resize/minimize/restore without new validation errors
 
-**Current Task: Frame Graph Transition Ownership**
-- Promote frame graph from ordering-only to ordering plus transition management for graph-managed resources.
+### Phase 4: Demo (Status: Done)
+- Compute writes output texture via UAV path
+- Raster samples compute output in demo pass
+- Present path stable with current frame graph transition ownership
+
+### Phase 5: Small Render-Scene Seed (Status: In progress, Active)
+
+**Goal**
+- Introduce a minimal CPU-side render-scene with flat arrays only, integrated into current draw flow.
 
 **Scope**
-- Add image transition metadata to frame-graph edge handling and emit image barriers during execute.
-- Keep pass execute lambdas focused on pipeline bind and draw/dispatch only.
-- Remove manual transitions for t_compute_output from pass code.
-- Keep swapchain and final blit transitions outside frame graph in this phase.
+- Add flat render-scene data model for textures, materials, transforms, and instances
+- Replace hardcoded draw binding inputs with scene-array lookups while preserving current output
+- Keep all scene data CPU-side in this phase
 
-**Definition of Done**
-- Compute pass writes t_compute_output and raster pass samples it without manual transitions inside those pass lambdas.
-- Frame graph emits correct synchronization and layout transitions for graph-managed image resources.
-- No new Vulkan validation errors.
-- Existing resize/minimize/restore behavior is unchanged.
+**Non-Goals (This Phase)**
+- Scene hierarchy/entity graph
+- Editor authoring flow
+- BLAS/TLAS and ray tracing instance system
+- GPU-driven culling/indirect dispatch
 
-**Non-Goals (This Step)**
-- Full transient resource allocator inside frame graph.
-- Multi-queue scheduling.
-- Full swapchain present-path ownership by frame graph.
+**Implementation Plan**
+1. Add minimal POD-style structs:
+  - RenderTextureRef
+  - RenderMaterial
+  - RenderTransform
+  - RenderInstance
+  - RenderScene (owning flat arrays)
+2. Add demo scene bootstrap function to populate flat arrays
+3. Route raster pass material/texture binding through scene arrays
+4. Route instance transform/material selection through scene indices
+5. Add index-range validation checks for scene references
+6. Add per-frame scene counters (textures/materials/instances) for sanity checks
 
-**Implementation Order**
-1. Extend frame graph resource-use metadata in framegraph data model.
-2. Add image-barrier emission path in execute from declared hazards.
-3. Refactor main renderer pass lambdas to remove manual compute-output transitions.
-4. Validate runtime behavior and validation-layer cleanliness.
+**Definition of Done (Phase 5)**
+- Runtime visual output is equivalent to current demo
+- No new Vulkan validation errors
+- Resize/minimize/restore remains stable
+- Scene traversal is linear through flat arrays (no hierarchy)
+- Data layout is upload-ready for later storage-buffer integration
 
-### Phase 4: Demo
-- Compute writes pattern or test result into texture
-- Raster samples that texture and presents it
-- Optional toggle between existing raster demo and compute demo
-
-### Phase 5: Small Render-Scene Seed
-- Introduce flat render-scene structs only if needed
-- Prefer arrays of instances/materials/textures over a hierarchy
-- Design them so they can later upload into storage buffers and support ray tracing instance lookup
+**Next After Phase 5**
+- Upload render-scene arrays into storage buffers
+- Bind scene buffers via Technique_instance storage-buffer path
+- Preserve data model compatibility for future ray tracing instance lookup
