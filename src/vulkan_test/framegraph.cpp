@@ -158,3 +158,127 @@ void Frame_graph::execute(vk::CommandBuffer& cmd)
         }
     }
 }
+
+// debug graph
+#include <sstream>
+#include <unordered_set>
+
+static std::string fg_escape_label(const std::string& s)
+{
+    std::string out;
+    out.reserve(s.size());
+    for (char c : s) {
+        if (c == '\"' || c == '\\')
+            out.push_back('\\');
+        out.push_back(c);
+    }
+    return out;
+}
+
+static const char* fg_use_kind(bool is_write) { return is_write ? "W" : "R"; }
+
+std::string Frame_graph::build_debug_dot() const
+{
+    std::ostringstream out;
+    out << "digraph FrameGraph {\n";
+    out << " rankdir=LR;\n";
+    out << " node [shape=box, style=rounded, fontname=\" Consolas \"];\n";
+    out << " edge [fontname=\" Consolas \"];\n";
+
+    for (uint32_t i = 0; i < static_cast<uint32_t>(m_passes.size()); ++i) {
+        const auto& p = m_passes[i];
+        out << "  p" << i << " [label=\"" << i << ": " << fg_escape_label(p.name) << "\"];\n";
+    }
+
+    // Rebuild dependency edges from declared hazards, with resource labels.
+    for (uint32_t i = 0; i < static_cast<uint32_t>(m_passes.size()); ++i) {
+        std::vector<ResourceUse> a = m_passes[i].reads;
+        a.insert(a.end(), m_passes[i].writes.begin(), m_passes[i].writes.end());
+
+        for (uint32_t j = i + 1; j < static_cast<uint32_t>(m_passes.size()); ++j) {
+            std::vector<ResourceUse> b = m_passes[j].reads;
+            b.insert(b.end(), m_passes[j].writes.begin(), m_passes[j].writes.end());
+
+            std::vector<std::string> labels;
+            bool has_hazard = false;
+
+            for (const auto& ua : a) {
+                for (const auto& ub : b) {
+                    if (!is_hazard(ua, ub))
+                        continue;
+                    has_hazard = true;
+                    std::ostringstream l;
+                    l << "res" << ua.resource_id << " " << fg_use_kind(ua.is_write) << "->" << fg_use_kind(ub.is_write);
+                    labels.push_back(l.str());
+                }
+            }
+
+            if (has_hazard) {
+                // Dedup labels to keep graph readable.
+                std::unordered_set<std::string> uniq(labels.begin(), labels.end());
+                std::ostringstream joined;
+                bool first = true;
+                for (const auto& s : uniq) {
+                    if (!first)
+                        joined << "\n";
+                    joined << s;
+                    first = false;
+                }
+                out << "  p" << i << " -> p" << j << " [label=\"" << joined.str() << "\"];\n";
+            }
+        }
+    }
+
+    out << "}\n";
+    return out.str();
+}
+
+std::string Frame_graph::build_debug_mermaid() const
+{
+    std::ostringstream out;
+    out << "flowchart LR\n";
+
+    for (uint32_t i = 0; i < static_cast<uint32_t>(m_passes.size()); ++i) {
+        const auto& p = m_passes[i];
+        out << "  p" << i << "[\"" << i << ": " << fg_escape_label(p.name) << "\"]\n";
+    }
+
+    for (uint32_t i = 0; i < static_cast<uint32_t>(m_passes.size()); ++i) {
+        std::vector<ResourceUse> a = m_passes[i].reads;
+        a.insert(a.end(), m_passes[i].writes.begin(), m_passes[i].writes.end());
+
+        for (uint32_t j = i + 1; j < static_cast<uint32_t>(m_passes.size()); ++j) {
+            std::vector<ResourceUse> b = m_passes[j].reads;
+            b.insert(b.end(), m_passes[j].writes.begin(), m_passes[j].writes.end());
+
+            std::vector<std::string> labels;
+            bool has_hazard = false;
+
+            for (const auto& ua : a) {
+                for (const auto& ub : b) {
+                    if (!is_hazard(ua, ub))
+                        continue;
+                    has_hazard = true;
+                    std::ostringstream l;
+                    l << "res" << ua.resource_id << " " << fg_use_kind(ua.is_write) << "->" << fg_use_kind(ub.is_write);
+                    labels.push_back(l.str());
+                }
+            }
+
+            if (has_hazard) {
+                std::unordered_set<std::string> uniq(labels.begin(), labels.end());
+                std::ostringstream joined;
+                bool first = true;
+                for (const auto& s : uniq) {
+                    if (!first)
+                        joined << ", ";
+                    joined << s;
+                    first = false;
+                }
+                out << " p" << i << " -->|" << joined.str() << "| p" << j << "\n";
+            }
+        }
+    }
+
+    return out.str();
+}
