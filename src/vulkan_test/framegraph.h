@@ -41,6 +41,10 @@ class Frame_graph {
     void compile();
     void execute(vk::CommandBuffer& cmd);
 
+    // debug utilities:
+    std::string build_debug_dot() const;
+    std::string build_debug_mermaid() const;
+
   private:
     struct Edge {
         uint32_t from = 0;

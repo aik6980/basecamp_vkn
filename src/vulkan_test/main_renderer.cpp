@@ -315,4 +315,9 @@ void Main_renderer::draw()
     // compile and execute frame graph
     m_frame_graph->compile();
     m_frame_graph->execute(*command_buffer);
+
+    // Optional debug export.
+    // Write once every N frames if this is too noisy.
+    const std::string dot = m_frame_graph->build_debug_dot();
+    const std::string mermaid = m_frame_graph->build_debug_mermaid();
 }
