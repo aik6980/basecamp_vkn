@@ -315,9 +315,31 @@ void Main_renderer::draw()
     // compile and execute frame graph
     m_frame_graph->compile();
     m_frame_graph->execute(*command_buffer);
+    if (m_dump_framegraph_requested) {
+        m_dump_framegraph_requested = false;
 
-    // Optional debug export.
-    // Write once every N frames if this is too noisy.
-    const std::string dot = m_frame_graph->build_debug_dot();
-    const std::string mermaid = m_frame_graph->build_debug_mermaid();
+        const std::string dot     = m_frame_graph->build_debug_dot();
+        const std::string mermaid = m_frame_graph->build_debug_mermaid();
+
+        namespace fs = std::filesystem;
+        fs::create_directories("framegraph");
+
+        const auto t = static_cast<long long>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+                .count());
+
+        const fs::path dot_path = fs::path("framegraph") / ("framegraph_" + std::to_string(t) + ".dot");
+        const fs::path mmd_path = fs::path("framegraph") / ("framegraph_" + std::to_string(t) + ".mmd");
+
+        {
+            std::ofstream f(dot_path, std::ios::binary);
+            f << dot;
+        }
+        {
+            std::ofstream f(mmd_path, std::ios::binary);
+            f << mermaid;
+        }
+
+        OutputDebugStringA(("FrameGraph exported: " + dot_path.string() + " , " + mmd_path.string() + "\n").c_str());
+    }
 }

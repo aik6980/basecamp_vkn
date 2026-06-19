@@ -31,9 +31,11 @@ See current-task.md for active implementation scope
         - One compute pass writing UAV texture
         - One raster pass sampling compute output
         - Next: formalize into frame graph pass/resource nodes
+- GPU Driven rendering pipeline use mesh shader
 - instancing
 - mesh pipeline experiments
 - ray tracing experiments
+- a simple physic module, so I can use it to make a game
 - a simple game
 - Full game-engine editor workflow.
 

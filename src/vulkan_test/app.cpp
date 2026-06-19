@@ -53,6 +53,11 @@ void App::on_init(HINSTANCE hInstance, HWND hWnd)
 
 void App::on_update()
 {
+
+    if ((GetAsyncKeyState(VK_F8) & 0x0001) != 0) {
+        main_renderer.request_framegraph_dump();
+    }
+
     // frame time
     m_duration_frame =
         std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - m_time_begin_frame);
