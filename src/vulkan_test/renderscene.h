@@ -43,4 +43,22 @@ namespace VKN {
         }
     };
 
+    struct RenderSceneCounters {
+        uint32_t m_textures   = 0;
+        uint32_t m_materials  = 0;
+        uint32_t m_transforms = 0;
+        uint32_t m_instances  = 0;
+    };
+
+    class Render_scene_state {
+      public:
+        void bootstrap_demo_scene();
+        bool validate_indices() const;
+        RenderSceneCounters counters() const;
+        const RenderScene& scene() const { return m_scene; }
+
+      private:
+        RenderScene m_scene;
+    };
+
 } // namespace VKN

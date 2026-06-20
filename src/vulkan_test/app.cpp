@@ -8,6 +8,7 @@
 
 #include "gfx_device/gfx_main.h"
 #include "main_renderer.h"
+#include "renderscene.h"
 
 std::chrono::time_point<std::chrono::steady_clock> App::m_time_begin_app;
 std::chrono::time_point<std::chrono::steady_clock> App::m_time_begin_frame;
@@ -17,6 +18,7 @@ std::unique_ptr<std::thread> render_thread;
 std::atomic<bool> game_running = true;
 
 Main_renderer main_renderer;
+VKN::Render_scene_state g_scene_state;
 
 void render_thread_func()
 {
@@ -109,6 +111,10 @@ void App::create_scene()
     shader_manager.register_raster_technique(
         "test/mesh_shader_triangle", VKN::Raster_stage_mask::MS | VKN::Raster_stage_mask::PS, colour_format, depth_format);
 
+    // scene material technique
+    shader_manager.register_raster_technique(
+        "scene/mesh_scene_unlit", VKN::Raster_stage_mask::MS | VKN::Raster_stage_mask::PS, colour_format, depth_format);
+
     // create compute techniques
     shader_manager.register_compute_technique("test/uav_resource");
 
@@ -139,5 +145,9 @@ void App::create_scene()
     // create mesh
     // resource_manager->create_mesh();
 
+    g_scene_state.bootstrap_demo_scene();
+    assert(g_scene_state.validate_indices());
+
+    main_renderer.set_scene_state(&g_scene_state);
     main_renderer.load_resource();
 }

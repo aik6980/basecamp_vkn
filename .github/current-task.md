@@ -1,4 +1,4 @@
-### Small Render-Scene Seed (Status: In progress, Active)
+### Small Render-Scene Seed (Status: Step 2 Complete - Mesh shader working, Active)
 
 **Goal**
 - Introduce a minimal CPU-side render-scene with flat arrays only, integrated into current draw flow.
@@ -17,14 +17,9 @@
 - GPU-driven culling/indirect dispatch
 
 **Implementation Plan**
-1. Add minimal POD-style structs:
-  - RenderTextureRef
-  - RenderMaterial
-  - RenderTransform
-  - RenderInstance
-  - RenderScene (owning flat arrays)
-2. Add a minimal mesh shader test path for the new backend
-3. Add demo scene bootstrap function to populate flat arrays
+1. ✅ Add minimal POD-style structs (DONE)
+2. ✅ Add a minimal mesh shader test path for the new backend (DONE)
+3. 🔄 Add demo scene bootstrap function to populate flat arrays (NEXT)
 4. Route raster or mesh pass material/texture binding through scene arrays
 5. Route instance transform/material selection through scene indices
 6. Add index-range validation checks for scene references

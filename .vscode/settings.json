@@ -9,7 +9,7 @@
   },
   "[hlsl]": {
     "editor.defaultFormatter": "moowiz.clang-format-moowiz-fork",
-    "editor.formatOnSave": true
+    "editor.formatOnSave": false
   },
   "clang-format.style": "file",
   "clang-format.fallbackStyle": "LLVM"

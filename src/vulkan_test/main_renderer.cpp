@@ -208,14 +208,34 @@ void Main_renderer::draw()
 
         // 4th draw
         {
-            auto&& technique = shader_manager.get_technique("test/mesh_shader_triangle").lock();
-            auto&& technique_instance = VKN::Technique_instance(*technique);
+            if (m_scene_state && m_scene_state->validate_indices()) {
+                const auto& scene = m_scene_state->scene();
+                if (!scene.m_instances.empty()) {
+                    const auto& instance = scene.m_instances[0];
+                    const auto& material = scene.m_materials[instance.m_material_id];
 
-            command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
-            const bool apply_ok = technique_instance.apply();
-            assert(apply_ok);
+                    auto&& technique = shader_manager.get_technique(material.m_technique_name).lock();
+                    if (technique) {
+                        auto&& technique_instance = VKN::Technique_instance(*technique);
 
-            command_buffer->drawMeshTasksEXT(1, 1, 1);
+                        bool texture_ok = false;
+                        if (material.m_base_colour_texture != VKN::k_invalid_render_id &&
+                            material.m_base_colour_texture < scene.m_textures.size()) {
+                            const auto& texture_ref = scene.m_textures[material.m_base_colour_texture];
+                            texture_ok =
+                                technique_instance.bind_sampled_image_by_name("ColourTex_srv", texture_ref.m_resource_name);
+                        }
+
+                        const bool sampler_ok = technique_instance.bind_sampler_by_name("Linear_sam", "s_linear_wrap");
+
+                        command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
+                        const bool apply_ok = texture_ok && sampler_ok && technique_instance.apply();
+                        assert(apply_ok);
+
+                        command_buffer->drawMeshTasksEXT(1, 1, 1);
+                    }
+                }
+            }
         }
 
         command_buffer->endRendering();
