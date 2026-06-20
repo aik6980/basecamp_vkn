@@ -16,26 +16,43 @@ namespace VKN {
     }
 
     std::weak_ptr<Technique> Shader_manager::register_raster_technique(
-        const std::string& filename, vk::Format color_format, vk::Format depth_format)
+        const std::string& filename, Raster_stage_mask stages, vk::Format color_format, vk::Format depth_format)
     {
         if (auto&& t = get_technique(filename); t.lock() != nullptr) {
             return t;
         }
 
-        auto&& vs_shader_handle = register_shader(filename + ".vs");
-        auto&& ps_shader_handle = register_shader(filename + ".ps");
+        const bool has_vs = has_stage(stages, Raster_stage_mask::VS);
+        const bool has_ms = has_stage(stages, Raster_stage_mask::MS);
+        const bool has_ps = has_stage(stages, Raster_stage_mask::PS);
 
-        auto&& technique = std::make_shared<Technique>(m_gfx_device);
-        technique->m_vs_handle = vs_shader_handle;
-        technique->m_ps_handle = ps_shader_handle;
+        if (!has_ps) {
+            throw std::runtime_error("register_graphics_technique requires PS stage");
+        }
+        if (has_vs == has_ms) {
+            throw std::runtime_error("register_graphics_technique requires exactly one of VS or MS");
+        }
+
+        auto&& technique           = std::make_shared<Technique>(m_gfx_device);
+        technique->m_raster_stages = stages;
+
+        if (has_vs) {
+            technique->m_vs_handle = register_shader(filename + ".vs");
+        }
+        if (has_ms) {
+            technique->m_ms_handle = register_shader(filename + ".ms");
+        }
+        if (has_ps) {
+            technique->m_ps_handle = register_shader(filename + ".ps");
+        }
+
         technique->create_pipeline(color_format, depth_format);
 
         m_technique_map.insert({filename, technique});
         return technique;
     }
 
-    std::weak_ptr<Technique> Shader_manager::register_compute_technique(
-        const std::string& filename)
+    std::weak_ptr<Technique> Shader_manager::register_compute_technique(const std::string& filename)
     {
         if (auto&& t = get_technique(filename); t.lock() != nullptr) {
             return t;
@@ -43,7 +60,7 @@ namespace VKN {
 
         auto&& cs_shader_handle = register_shader(filename + ".cs");
 
-        auto&& technique = std::make_shared<Technique>(m_gfx_device);
+        auto&& technique       = std::make_shared<Technique>(m_gfx_device);
         technique->m_cs_handle = cs_shader_handle;
         technique->create_compute_pipeline();
 

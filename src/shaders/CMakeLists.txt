@@ -1,7 +1,8 @@
 file(GLOB_RECURSE ALL_FILES "*.hlsl" "*.h")
 file(GLOB_RECURSE CS_FILES "*.cs.hlsl")
 # for raster shaders
-file(GLOB_RECURSE RAS_FILES "*.ras.hlsl") 
+file(GLOB_RECURSE RAS_FILES "*.ras.hlsl")
+
 file(GLOB_RECURSE RAY_FILES "*.ray.hlsl")
 file(GLOB_RECURSE INC_FILES "*.inc.hlsl")
 
@@ -48,12 +49,29 @@ macro(Dxc_compile src_files dxc_path profile entry_point stage_suffix spirv_opt)
 	endforeach(var)
 endmacro()
 
+function(filter_files_with_entry out_var entry_name)
+    set(result)
+    foreach(f IN LISTS ARGN)
+        file(READ "${f}" src_text)
+        string(REGEX MATCH "(^|[^A-Za-z0-9_])${entry_name}[ \t\r\n]*\\(" has_entry "${src_text}")
+        if(has_entry)
+            list(APPEND result "${f}")
+        endif()
+    endforeach()
+    set(${out_var} "${result}" PARENT_SCOPE)
+endfunction()
+
 set(PROJECT_NAME shader_dxil)
 project(${PROJECT_NAME})
 
+filter_files_with_entry(RAS_VS_FILES "vsmain" ${RAS_FILES})
+filter_files_with_entry(RAS_PS_FILES "psmain" ${RAS_FILES})
+filter_files_with_entry(RAS_MS_FILES "msmain" ${RAS_FILES})
+
 set(OUTPUT_FILES)
-Gen_output_files("${RAS_FILES}" "vs")
-Gen_output_files("${RAS_FILES}" "ps")
+Gen_output_files("${RAS_VS_FILES}" "vs")
+Gen_output_files("${RAS_PS_FILES}" "ps")
+Gen_output_files("${RAS_MS_FILES}" "ms")
 Gen_output_files("${CS_FILES}" "cs")
 Gen_output_files("${RAY_FILES}" "ray")
 message(${OUTPUT_FILES})
@@ -79,8 +97,9 @@ add_custom_command(TARGET ${PROJECT_NAME}
 		)
 #message("Cleaning files{\"\\n\", s8b}")
 
-Dxc_compile("${RAS_FILES}" ${DXC} "vs_6_0" "vsmain" "vs" "")
-Dxc_compile("${RAS_FILES}" ${DXC} "ps_6_0" "psmain" "ps" "")
+Dxc_compile("${RAS_VS_FILES}" ${DXC} "vs_6_0" "vsmain" "vs" "")
+Dxc_compile("${RAS_PS_FILES}" ${DXC} "ps_6_0" "psmain" "ps" "")
+Dxc_compile("${RAS_MS_FILES}" ${DXC} "ms_6_5" "msmain" "ms" "")
 Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" "csmain" "cs" "")
 Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "raymain" "ray" "")
 
@@ -91,9 +110,14 @@ func_group_src("${ALL_FILES}")
 set(PROJECT_NAME shader_spirv)
 project(${PROJECT_NAME})
 
+filter_files_with_entry(RAS_VS_FILES "vsmain" ${RAS_FILES})
+filter_files_with_entry(RAS_PS_FILES "psmain" ${RAS_FILES})
+filter_files_with_entry(RAS_MS_FILES "msmain" ${RAS_FILES})
+
 set(OUTPUT_FILES)
-Gen_output_files("${RAS_FILES}" "vs")
-Gen_output_files("${RAS_FILES}" "ps")
+Gen_output_files("${RAS_VS_FILES}" "vs")
+Gen_output_files("${RAS_PS_FILES}" "ps")
+Gen_output_files("${RAS_MS_FILES}" "ms")
 Gen_output_files("${CS_FILES}" "cs")
 Gen_output_files("${RAY_FILES}" "ray")
 message(${OUTPUT_FILES})
@@ -120,8 +144,9 @@ add_custom_command(TARGET ${PROJECT_NAME}
 set(SPIRV_OPTS "-spirv -fspv-target-env=\"vulkan1.1spirv1.4\"")
 message(${SPIRV_OPTS})
 
-Dxc_compile("${RAS_FILES}" ${DXC} "vs_6_0" "vsmain" "vs" ${SPIRV_OPTS} )
-Dxc_compile("${RAS_FILES}" ${DXC} "ps_6_0" "psmain" "ps" ${SPIRV_OPTS} )
+Dxc_compile("${RAS_VS_FILES}" ${DXC} "vs_6_0" "vsmain" "vs" ${SPIRV_OPTS} )
+Dxc_compile("${RAS_PS_FILES}" ${DXC} "ps_6_0" "psmain" "ps" ${SPIRV_OPTS} )
+Dxc_compile("${RAS_MS_FILES}" ${DXC} "ms_6_5" "msmain" "ms" ${SPIRV_OPTS} )
 Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" "csmain" "cs" ${SPIRV_OPTS} )
 Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "raymain" "ray" ${SPIRV_OPTS} )
 

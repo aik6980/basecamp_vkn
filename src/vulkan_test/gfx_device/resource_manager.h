@@ -26,7 +26,8 @@ namespace VKN {
 
         void destroy_buffer(Buffer& buffer);
 
-        // I think we can remove this function? since now we have scratch allocator for dynamic buffer creation, and we can directly use create_buffer for static buffer creation
+        // I think we can remove this function? since now we have scratch allocator for dynamic buffer creation, and we can
+        // directly use create_buffer for static buffer creation
         Buffer create_constant_buffer(const void* src_data, size_t size);
 
         void create_storage_buffer(
@@ -54,7 +55,6 @@ namespace VKN {
         std::unordered_map<std::string, Texture> m_textures;
         std::unordered_map<std::string, vk::Sampler> m_samplers;
         std::unordered_map<std::string, Buffer> m_storage_buffers;
-
     };
 
 } // namespace VKN

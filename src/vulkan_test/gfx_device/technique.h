@@ -7,12 +7,31 @@ namespace VKN {
 
     struct Descriptorset_layoutdata;
 
+    enum class Raster_stage_mask : uint32_t {
+        None = 0,
+        VS   = 1u << 0,
+        PS   = 1u << 1,
+        MS   = 1u << 2,
+        // optional future:
+        // AS = 1u << 3,
+        // GS = 1u << 4,
+    };
+
+    inline Raster_stage_mask operator|(Raster_stage_mask a, Raster_stage_mask b)
+    {
+        return static_cast<Raster_stage_mask>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+    }
+    inline bool has_stage(Raster_stage_mask mask, Raster_stage_mask bit)
+    {
+        return (static_cast<uint32_t>(mask) & static_cast<uint32_t>(bit)) != 0;
+    }
+
     struct Reflected_descriptor_binding {
         uint32_t m_set_number       = 0;
         uint32_t m_binding_number   = 0;
         uint32_t m_set_layout_index = 0; // index used when binding in pipeline layout
         vk::DescriptorType m_descriptor_type{};
-        uint32_t m_descriptor_count = 0;
+        uint32_t m_descriptor_count         = 0;
         bool m_is_variable_descriptor_count = false;
     };
 
@@ -34,9 +53,12 @@ namespace VKN {
       public:
         Device& m_gfx_device;
 
+        std::weak_ptr<Shader> m_ms_handle;
         std::weak_ptr<Shader> m_vs_handle;
         std::weak_ptr<Shader> m_ps_handle;
         std::weak_ptr<Shader> m_cs_handle;
+
+        Raster_stage_mask m_raster_stages = Raster_stage_mask::None;
 
         std::vector<vk::DescriptorSetLayout> m_descriptorset_layouts;
         std::vector<Descriptorset_layoutdata*> m_descriptorset_infos;
@@ -47,6 +69,7 @@ namespace VKN {
         vk::Pipeline m_pipeline;
 
         vk::PipelineBindPoint m_bind_point = vk::PipelineBindPoint::eGraphics;
+
       private:
         void create_descriptor_pipeline_layout();
     };

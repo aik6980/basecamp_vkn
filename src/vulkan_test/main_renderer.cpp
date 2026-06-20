@@ -206,6 +206,18 @@ void Main_renderer::draw()
             command_buffer->draw(6, total_instances, 0, 0);
         }
 
+        // 4th draw
+        {
+            auto&& technique = shader_manager.get_technique("test/mesh_shader_triangle").lock();
+            auto&& technique_instance = VKN::Technique_instance(*technique);
+
+            command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
+            const bool apply_ok = technique_instance.apply();
+            assert(apply_ok);
+
+            command_buffer->drawMeshTasksEXT(1, 1, 1);
+        }
+
         command_buffer->endRendering();
     };
 

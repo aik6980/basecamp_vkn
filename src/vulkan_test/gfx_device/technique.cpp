@@ -51,25 +51,62 @@ namespace VKN {
     {
         auto&& device = m_gfx_device.m_device;
 
+        auto&& ms = m_ms_handle.lock();
         auto&& vs = m_vs_handle.lock();
         auto&& ps = m_ps_handle.lock();
 
         // Programable state -----------
-        std::array<vk::PipelineShaderStageCreateInfo, 2> pipeline_shader_stage_createinfo = {
-            vk::PipelineShaderStageCreateInfo{
-                .stage = vk::ShaderStageFlagBits::eVertex, .module = vs->m_shader_module, .pName = "vsmain"},
-            vk::PipelineShaderStageCreateInfo{
-                .stage = vk::ShaderStageFlagBits::eFragment, .module = ps->m_shader_module, .pName = "psmain"}};
+        const bool wants_vs = has_stage(m_raster_stages, Raster_stage_mask::VS);
+        const bool wants_ms = has_stage(m_raster_stages, Raster_stage_mask::MS);
+        const bool wants_ps = has_stage(m_raster_stages, Raster_stage_mask::PS);
 
-        vk::PipelineVertexInputStateCreateInfo pipeline_vertex_input_state_createinfo;
-        if (vs->m_vertex_input_attribute_descriptions.size() > 0) {
-            pipeline_vertex_input_state_createinfo = {
-                .vertexBindingDescriptionCount   = 1,
-                .pVertexBindingDescriptions      = &vs->m_vertex_input_binding_description,
-                .vertexAttributeDescriptionCount = (uint32_t)vs->m_vertex_input_attribute_descriptions.size(),
-                .pVertexAttributeDescriptions    = vs->m_vertex_input_attribute_descriptions.data(),
-            };
+        if (!wants_ps) {
+            throw std::runtime_error("Graphics pipeline requires PS stage in stage mask");
         }
+
+        if (wants_vs == wants_ms) {
+            throw std::runtime_error("Graphics pipeline requires exactly one of VS or MS in stage mask");
+        }
+
+        if (wants_vs && !vs) {
+            throw std::runtime_error("Graphics pipeline declared VS stage but VS shader handle is missing");
+        }
+
+        if (wants_ms && !ms) {
+            throw std::runtime_error("Graphics pipeline declared MS stage but MS shader handle is missing");
+        }
+
+        if (wants_ps && !ps) {
+            throw std::runtime_error("Graphics pipeline declared PS stage but PS shader handle is missing");
+        }
+
+        std::vector<vk::PipelineShaderStageCreateInfo> pipeline_shader_stages;
+        vk::PipelineVertexInputStateCreateInfo pipeline_vertex_input_state_createinfo;
+
+        if (wants_ms) {
+            // Mesh shader path: MS + PS
+            pipeline_shader_stages.push_back(vk::PipelineShaderStageCreateInfo{
+                .stage = vk::ShaderStageFlagBits::eMeshEXT, .module = ms->m_shader_module, .pName = "msmain"});
+            // No vertex input state for mesh shaders
+        }
+        else {
+            // Vertex shader path: VS + PS
+            pipeline_shader_stages.push_back(vk::PipelineShaderStageCreateInfo{
+                .stage = vk::ShaderStageFlagBits::eVertex, .module = vs->m_shader_module, .pName = "vsmain"});
+
+            // Setup vertex input only for vertex shaders
+            if (vs->m_vertex_input_attribute_descriptions.size() > 0) {
+                pipeline_vertex_input_state_createinfo = {
+                    .vertexBindingDescriptionCount   = 1,
+                    .pVertexBindingDescriptions      = &vs->m_vertex_input_binding_description,
+                    .vertexAttributeDescriptionCount = (uint32_t)vs->m_vertex_input_attribute_descriptions.size(),
+                    .pVertexAttributeDescriptions    = vs->m_vertex_input_attribute_descriptions.data(),
+                };
+            }
+        }
+
+        pipeline_shader_stages.push_back(vk::PipelineShaderStageCreateInfo{
+            .stage = vk::ShaderStageFlagBits::eFragment, .module = ps->m_shader_module, .pName = "psmain"});
 
         // Create a pipeline layout from Shader stages
         // Descriptor set layout + reflected binding map + pipeline layout
@@ -166,10 +203,10 @@ namespace VKN {
         vk::GraphicsPipelineCreateInfo graphics_pipeline_createinfo{
             .pNext               = &render_info,
             .flags               = vk::PipelineCreateFlags(),               // flags
-            .stageCount          = pipeline_shader_stage_createinfo.size(), // stages
-            .pStages             = pipeline_shader_stage_createinfo.data(),
-            .pVertexInputState   = &pipeline_vertex_input_state_createinfo,   // pVertexInputState
-            .pInputAssemblyState = &pipeline_input_assembly_state_createinfo, // pInputAssemblyState
+            .stageCount          = (uint32_t)pipeline_shader_stages.size(), // stages
+            .pStages             = pipeline_shader_stages.data(),
+            .pVertexInputState   = wants_ms ? nullptr : &pipeline_vertex_input_state_createinfo,
+            .pInputAssemblyState = wants_ms ? nullptr : &pipeline_input_assembly_state_createinfo,
             .pTessellationState  = nullptr,                                   // pTessellationState
             .pViewportState      = &pipeline_viewport_state_createinfo,       // pViewportState
             .pRasterizationState = &pipeline_rasterization_state_createinfo,  // pRasterizationState
@@ -212,6 +249,7 @@ namespace VKN {
     {
         auto&& device = m_gfx_device.m_device;
 
+        auto&& ms = m_ms_handle.lock();
         auto&& vs = m_vs_handle.lock();
         auto&& ps = m_ps_handle.lock();
         auto&& cs = m_cs_handle.lock();
@@ -291,6 +329,9 @@ namespace VKN {
         };
 
         // todo : refactor and make it easier to read
+        if (ms) {
+            collect_stage(*ms);
+        }
         if (vs) {
             collect_stage(*vs);
         }

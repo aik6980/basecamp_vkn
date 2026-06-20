@@ -97,9 +97,17 @@ void App::create_scene()
     auto&& depth_format  = gfx_device.backbuffer_depth_format();
 
     // create raster techniques
-    shader_manager.register_raster_technique("test/single_triangle", colour_format, depth_format);
-    shader_manager.register_raster_technique("test/constant_buffer", colour_format, depth_format);
-    shader_manager.register_raster_technique("test/bindless_textures", colour_format, depth_format);
+    shader_manager.register_raster_technique(
+        "test/single_triangle", VKN::Raster_stage_mask::VS | VKN::Raster_stage_mask::PS, colour_format, depth_format);
+
+    shader_manager.register_raster_technique(
+        "test/constant_buffer", VKN::Raster_stage_mask::VS | VKN::Raster_stage_mask::PS, colour_format, depth_format);
+
+    shader_manager.register_raster_technique(
+        "test/bindless_textures", VKN::Raster_stage_mask::VS | VKN::Raster_stage_mask::PS, colour_format, depth_format);
+
+    shader_manager.register_raster_technique(
+        "test/mesh_shader_triangle", VKN::Raster_stage_mask::MS | VKN::Raster_stage_mask::PS, colour_format, depth_format);
 
     // create compute techniques
     shader_manager.register_compute_technique("test/uav_resource");

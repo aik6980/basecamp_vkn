@@ -596,6 +596,11 @@ namespace VKN {
             .runtimeDescriptorArray                   = VK_TRUE,
         };
 
+        auto&& required_mesh_shader = vk::PhysicalDeviceMeshShaderFeaturesEXT{
+            .taskShader = VK_FALSE,
+            .meshShader = VK_TRUE,
+        };
+
         vkb::PhysicalDeviceSelector selector{vkb_instance};
 
         auto&& ret_physical_device = selector.set_surface(static_cast<VkSurfaceKHR>(m_surface))
@@ -603,6 +608,7 @@ namespace VKN {
                                          .add_required_extension_features(required_dynamic_rendering)
                                          .add_required_extension_features(required_synchronization2)
                                          .add_required_extension_features(required_descriptor_indexing)
+                                         .add_required_extension_features(required_mesh_shader)
                                          .select();
 
         if (!ret_physical_device) {
@@ -1100,6 +1106,7 @@ namespace VKN {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
             VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+            VK_EXT_MESH_SHADER_EXTENSION_NAME,
         };
     }
 
