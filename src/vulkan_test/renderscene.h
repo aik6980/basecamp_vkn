@@ -9,30 +9,30 @@ namespace VKN {
 
     static constexpr uint32_t k_invalid_render_id = std::numeric_limits<uint32_t>::max();
 
-    struct RenderTextureRef {
+    struct Render_texture_ref {
         std::string m_resource_name;
     };
 
-    struct RenderMaterial {
+    struct Render_material {
         std::string m_technique_name;
         uint32_t m_base_colour_texture = k_invalid_render_id;
     };
 
-    struct RenderTransform {
+    struct Render_transform {
         Matrix m_world = Matrix::Identity;
     };
 
-    struct RenderInstance {
+    struct Render_instance {
         uint32_t m_mesh_id      = 0;
         uint32_t m_material_id  = k_invalid_render_id;
         uint32_t m_transform_id = k_invalid_render_id;
     };
 
-    struct RenderScene {
-        std::vector<RenderTextureRef> m_textures;
-        std::vector<RenderMaterial> m_materials;
-        std::vector<RenderTransform> m_transforms;
-        std::vector<RenderInstance> m_instances;
+    struct Render_scene {
+        std::vector<Render_texture_ref> m_textures;
+        std::vector<Render_material> m_materials;
+        std::vector<Render_transform> m_transforms;
+        std::vector<Render_instance> m_instances;
 
         void clear()
         {
@@ -43,14 +43,14 @@ namespace VKN {
         }
     };
 
-    struct RenderSceneCounters {
+    struct Render_scene_counters {
         uint32_t m_textures   = 0;
         uint32_t m_materials  = 0;
         uint32_t m_transforms = 0;
         uint32_t m_instances  = 0;
     };
 
-    struct RenderSceneValidation {
+    struct Render_scene_validation {
         bool m_ok                 = true;
         uint32_t m_instance_index = k_invalid_render_id;
         std::string m_reason;
@@ -62,16 +62,16 @@ namespace VKN {
 
         // New detailed API for diagnostics
         bool need_validation() const { return m_need_validation; }
-        const RenderSceneValidation& last_validation_result() const { return m_last_validation_result; }
-        RenderSceneValidation validate_indices_verbose() const;
+        const Render_scene_validation& last_validation_result() const { return m_last_validation_result; }
+        Render_scene_validation validate_indices_verbose() const;
 
-        RenderSceneCounters counters() const;
-        const RenderScene& scene() const { return m_scene; }
+                Render_scene_counters counters() const;
+                const Render_scene& scene() const { return m_scene; }
 
       private:
-        RenderScene m_scene;
+                Render_scene m_scene;
         mutable bool m_need_validation = false;
-        mutable RenderSceneValidation m_last_validation_result{};
+                mutable Render_scene_validation m_last_validation_result{};
     };
 
 } // namespace VKN

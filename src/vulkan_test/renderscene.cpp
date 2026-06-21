@@ -6,46 +6,46 @@ namespace VKN {
     {
         m_scene.clear();
 
-        m_scene.m_textures.push_back(RenderTextureRef{.m_resource_name = "t_checkerboard"});
-        m_scene.m_textures.push_back(RenderTextureRef{.m_resource_name = "t_checkerboard_redblue"});
-        m_scene.m_textures.push_back(RenderTextureRef{.m_resource_name = "t_checkerboard_redgreen"});
+        m_scene.m_textures.push_back(Render_texture_ref{.m_resource_name = "t_checkerboard"});
+        m_scene.m_textures.push_back(Render_texture_ref{.m_resource_name = "t_checkerboard_redblue"});
+        m_scene.m_textures.push_back(Render_texture_ref{.m_resource_name = "t_checkerboard_redgreen"});
 
-        m_scene.m_materials.push_back(RenderMaterial{
+        m_scene.m_materials.push_back(Render_material{
             .m_technique_name      = "scene/mesh_scene_unlit",
             .m_base_colour_texture = 0,
         });
-        m_scene.m_materials.push_back(RenderMaterial{
+        m_scene.m_materials.push_back(Render_material{
             .m_technique_name      = "scene/mesh_scene_unlit",
             .m_base_colour_texture = 1,
         });
-        m_scene.m_materials.push_back(RenderMaterial{
+        m_scene.m_materials.push_back(Render_material{
             .m_technique_name      = "scene/mesh_scene_unlit",
             .m_base_colour_texture = 2,
         });
 
         m_scene.m_transforms.push_back(
-            RenderTransform{.m_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(-0.55f, 0.35f, 0.0f)});
+            Render_transform{.m_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(-0.55f, 0.35f, 0.0f)});
         m_scene.m_transforms.push_back(
-            RenderTransform{.m_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.00f, 0.35f, 0.0f)});
+            Render_transform{.m_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.00f, 0.35f, 0.0f)});
         m_scene.m_transforms.push_back(
-            RenderTransform{.m_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.55f, 0.35f, 0.0f)});
+            Render_transform{.m_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.55f, 0.35f, 0.0f)});
         m_scene.m_transforms.push_back(
-            RenderTransform{.m_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(-0.30f, -0.25f, 0.0f)});
+            Render_transform{.m_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(-0.30f, -0.25f, 0.0f)});
         m_scene.m_transforms.push_back(
-            RenderTransform{.m_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.30f, -0.25f, 0.0f)});
+            Render_transform{.m_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.30f, -0.25f, 0.0f)});
 
-        m_scene.m_instances.push_back(RenderInstance{.m_mesh_id = 0, .m_material_id = 0, .m_transform_id = 0});
-        m_scene.m_instances.push_back(RenderInstance{.m_mesh_id = 0, .m_material_id = 1, .m_transform_id = 1});
-        m_scene.m_instances.push_back(RenderInstance{.m_mesh_id = 0, .m_material_id = 2, .m_transform_id = 2});
-        m_scene.m_instances.push_back(RenderInstance{.m_mesh_id = 0, .m_material_id = 1, .m_transform_id = 3});
-        m_scene.m_instances.push_back(RenderInstance{.m_mesh_id = 0, .m_material_id = 0, .m_transform_id = 4});
+        m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 0, .m_transform_id = 0});
+        m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 1, .m_transform_id = 1});
+        m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 2, .m_transform_id = 2});
+        m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 1, .m_transform_id = 3});
+        m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 0, .m_transform_id = 4});
 
         m_need_validation = true;
     }
 
-    RenderSceneValidation Render_scene_state::validate_indices_verbose() const
+    Render_scene_validation Render_scene_state::validate_indices_verbose() const
     {
-        RenderSceneValidation result{};
+        Render_scene_validation result{};
 
         for (uint32_t i = 0; i < static_cast<uint32_t>(m_scene.m_instances.size()); ++i) {
             const auto& inst = m_scene.m_instances[i];
@@ -91,9 +91,9 @@ namespace VKN {
         return m_last_validation_result;
     }
 
-    RenderSceneCounters Render_scene_state::counters() const
+    Render_scene_counters Render_scene_state::counters() const
     {
-        return RenderSceneCounters{
+        return Render_scene_counters{
             .m_textures   = static_cast<uint32_t>(m_scene.m_textures.size()),
             .m_materials  = static_cast<uint32_t>(m_scene.m_materials.size()),
             .m_transforms = static_cast<uint32_t>(m_scene.m_transforms.size()),
