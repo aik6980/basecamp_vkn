@@ -146,7 +146,8 @@ void App::create_scene()
     // resource_manager->create_mesh();
 
     g_scene_state.bootstrap_demo_scene();
-    assert(g_scene_state.validate_indices());
+    g_scene_state.validate_indices_verbose();
+    assert(g_scene_state.last_validation_result().m_ok);
 
     main_renderer.set_scene_state(&g_scene_state);
     main_renderer.load_resource();

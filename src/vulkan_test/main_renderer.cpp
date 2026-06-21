@@ -206,32 +206,60 @@ void Main_renderer::draw()
             command_buffer->draw(6, total_instances, 0, 0);
         }
 
-        // 4th draw
+        // 4th draw - scene mesh instances
         {
-            if (m_scene_state && m_scene_state->validate_indices()) {
+            if (m_scene_state && m_scene_state->need_validation()) {
+                const auto validation = m_scene_state->validate_indices_verbose();
+                const auto counters   = m_scene_state->counters();
+
+                std::string msg = "Scene counters: tex=" + std::to_string(counters.m_textures) +
+                                  " mat=" + std::to_string(counters.m_materials) +
+                                  " xform=" + std::to_string(counters.m_transforms) +
+                                  " inst=" + std::to_string(counters.m_instances) + "\n";
+                OutputDebugStringA(msg.c_str());
+
+                if (!validation.m_ok) {
+                    std::string err = "Scene validation failed at instance " + std::to_string(validation.m_instance_index) +
+                                      " reason: " + validation.m_reason + "\n";
+                    OutputDebugStringA(err.c_str());
+                }
+            }
+
+            if (m_scene_state && m_scene_state->last_validation_result().m_ok) {
                 const auto& scene = m_scene_state->scene();
-                if (!scene.m_instances.empty()) {
-                    const auto& instance = scene.m_instances[0];
-                    const auto& material = scene.m_materials[instance.m_material_id];
+
+                for (const auto& instance : scene.m_instances) {
+                    const auto& material  = scene.m_materials[instance.m_material_id];
+                    const auto& transform = scene.m_transforms[instance.m_transform_id];
 
                     auto&& technique = shader_manager.get_technique(material.m_technique_name).lock();
-                    if (technique) {
-                        auto&& technique_instance = VKN::Technique_instance(*technique);
+                    if (!technique) {
+                        continue;
+                    }
 
-                        bool texture_ok = false;
-                        if (material.m_base_colour_texture != VKN::k_invalid_render_id &&
-                            material.m_base_colour_texture < scene.m_textures.size()) {
-                            const auto& texture_ref = scene.m_textures[material.m_base_colour_texture];
-                            texture_ok =
-                                technique_instance.bind_sampled_image_by_name("ColourTex_srv", texture_ref.m_resource_name);
-                        }
+                    auto&& technique_instance = VKN::Technique_instance(*technique);
 
-                        const bool sampler_ok = technique_instance.bind_sampler_by_name("Linear_sam", "s_linear_wrap");
+                    bool texture_ok = false;
+                    if (material.m_base_colour_texture != VKN::k_invalid_render_id &&
+                        material.m_base_colour_texture < scene.m_textures.size()) {
+                        const auto& texture_ref = scene.m_textures[material.m_base_colour_texture];
+                        texture_ok =
+                            technique_instance.bind_sampled_image_by_name("ColourTex_srv", texture_ref.m_resource_name);
+                    }
 
-                        command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
-                        const bool apply_ok = texture_ok && sampler_ok && technique_instance.apply();
-                        assert(apply_ok);
+                    const bool sampler_ok = technique_instance.bind_sampler_by_name("Linear_sam", "s_linear_wrap");
 
+                    struct WorldDataCPU {
+                        Matrix m_world;
+                    } world_data = {transform.m_world};
+                    const bool world_ok =
+                        technique_instance.bind_constant_by_name("World_cbv", &world_data, sizeof(world_data));
+
+                    command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
+                    const bool apply_ok = texture_ok && sampler_ok && world_ok && technique_instance.apply();
+                    assert(apply_ok);
+
+                    if (apply_ok) {
                         command_buffer->drawMeshTasksEXT(1, 1, 1);
                     }
                 }
