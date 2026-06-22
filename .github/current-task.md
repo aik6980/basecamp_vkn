@@ -1,4 +1,4 @@
-### Small Render-Scene Seed (Status: Step 5 In Progress - Scene path active with multi-instance CPU loop, Active)
+### Small Render-Scene Seed (Status: Phase 5 Complete - GPU buffer upload path in progress, Active)
 
 **Goal**
 - Introduce a minimal CPU-side render-scene with flat arrays, integrated into current draw flow.
@@ -8,8 +8,8 @@
 - Keep flat render-scene data model for textures, materials, transforms, and instances.
 - Route mesh pass material and texture binding through scene arrays.
 - Route instance transform and material selection through scene indices.
-- Keep all scene data CPU-side in this phase.
 - Keep test shaders isolated from scene shaders.
+- Upload scene arrays into GPU storage buffers using shared Scene_* layout.
 
 **Non-Goals (This Phase)**
 - Scene hierarchy or entity graph.
@@ -23,30 +23,31 @@
 2. Done: Minimal mesh shader test backend added.
 3. Done: Demo scene bootstrap populates arrays.
 4. Done: Scene technique and material texture binding path added.
-5. In progress: Multi-instance scene traversal in mesh pass with per-instance selection.
-6. Next: Harden index-range validation and add clear failure diagnostics.
-7. Next: Add per-frame scene counters and lightweight debug reporting.
-8. Next: Freeze a shared scene schema contract that is backend-agnostic for raster and ray tracing.
-9. Next: Prepare upload-ready layout notes for storage-buffer migration in next phase.
+5. Done: Multi-instance scene traversal in mesh pass with per-instance selection.
+6. Done: Index-range validation with verbose diagnostics added.
+7. Done: Per-frame scene counters and debug reporting added.
+8. Done: Shared scene schema frozen - Scene_mesh_desc, Scene_material_desc, Scene_transform_desc, Scene_instance_desc added to hlsl_shared_struct.h. CPU structs renamed to snake_case convention.
+9. In progress: Implement upload_to_gpu() in Render_scene_state to pack CPU arrays into GPU storage buffers using Scene_* layout.
 
-**Validation Checklist (Current Phase)**
+**Validation Checklist**
 - Visual output remains equivalent to prior demo intent.
 - No new Vulkan validation errors.
 - Resize, minimize, and restore remain stable.
 - Scene traversal remains linear through flat arrays.
 - Scene shader path is separate from test shader path.
-- Data layout remains upload-ready.
+- CPU and GPU scene struct layouts are kept in sync.
 
-**Definition of Done (Phase 5)**
+**Definition of Done (Phase 5 - complete)**
 - Mesh shader scene path uses scene arrays for technique, material, texture, and instance selection.
 - Multi-instance render path runs from scene instances without hardcoded draw selection.
-- Index validation is enforced for all scene references.
+- Index validation is enforced with verbose diagnostics.
 - Per-frame counters for textures, materials, transforms, and instances are available.
-- No new validation errors and runtime stability preserved.
+- Shared GPU-compatible scene structs frozen in hlsl_shared_struct.h.
+- upload_to_gpu packs and submits all scene arrays as named GPU storage buffers.
 
-**Next After Phase 5**
-- Upload scene arrays into storage buffers.
-- Bind scene buffers through technique instance storage-buffer path.
+**Next After GPU Upload**
+- Bind scene storage buffers to scene/mesh_scene_unlit shader via bind_storage_buffer_by_name.
+- Verify buffer contents match CPU scene by checking instance count in debug output.
 - Add compute culling pass that writes visible instance list and indirect args.
 - Switch mesh draw from CPU loop to indirect mesh dispatch.
 - Reuse the same scene instance and material records for ray tracing instance lookup and shading.
