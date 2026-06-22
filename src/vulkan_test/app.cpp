@@ -148,6 +148,8 @@ void App::create_scene()
     g_scene_state.bootstrap_demo_scene();
     g_scene_state.validate_indices_verbose();
     assert(g_scene_state.last_validation_result().m_ok);
+    
+    g_scene_state.upload_to_gpu(); 
 
     main_renderer.set_scene_state(&g_scene_state);
     main_renderer.load_resource();

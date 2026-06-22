@@ -251,7 +251,7 @@ void Main_renderer::draw()
 
                     struct WorldDataCPU {
                         Matrix m_world;
-                    } world_data = {transform.m_world};
+                    } world_data = {transform.m_obj_to_world};
                     const bool world_ok =
                         technique_instance.bind_constant_by_name("World_cbv", &world_data, sizeof(world_data));
 
