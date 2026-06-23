@@ -601,6 +601,27 @@ namespace VKN {
             .meshShader = VK_TRUE,
         };
 
+        // Enable raytracing features
+        auto&& required_bda = vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR{
+            .bufferDeviceAddress = VK_TRUE,
+        };
+
+        auto&& accel_struct_features = vk::PhysicalDeviceAccelerationStructureFeaturesKHR{
+            .accelerationStructure                                 = VK_TRUE, // Enable BLAS/TLAS creation
+            .accelerationStructureCaptureReplay                    = VK_FALSE,
+            .accelerationStructureIndirectBuild                    = VK_FALSE,
+            .accelerationStructureHostCommands                     = VK_FALSE,
+            .descriptorBindingAccelerationStructureUpdateAfterBind = VK_FALSE,
+        };
+
+        auto&& raytracing_features = vk::PhysicalDeviceRayTracingPipelineFeaturesKHR{
+            .rayTracingPipeline                                    = VK_TRUE, // Enable raytrace shader compilation
+            .rayTracingPipelineShaderGroupHandleCaptureReplay      = VK_FALSE,
+            .rayTracingPipelineShaderGroupHandleCaptureReplayMixed = VK_FALSE,
+            .rayTracingPipelineTraceRaysIndirect                   = VK_FALSE,
+            .rayTraversalPrimitiveCulling                          = VK_FALSE,
+        };
+
         vkb::PhysicalDeviceSelector selector{vkb_instance};
 
         auto&& ret_physical_device = selector.set_surface(static_cast<VkSurfaceKHR>(m_surface))
@@ -609,6 +630,9 @@ namespace VKN {
                                          .add_required_extension_features(required_synchronization2)
                                          .add_required_extension_features(required_descriptor_indexing)
                                          .add_required_extension_features(required_mesh_shader)
+                                         .add_required_extension_features(required_bda)
+                                         .add_required_extension_features(accel_struct_features)
+                                         .add_required_extension_features(raytracing_features)
                                          .select();
 
         if (!ret_physical_device) {
@@ -800,6 +824,7 @@ namespace VKN {
         createinfo.device           = m_device;
         createinfo.instance         = m_vk_instance;
         createinfo.vulkanApiVersion = m_req_api_version;
+        createinfo.flags            = vma::AllocatorCreateFlagBits::eBufferDeviceAddress;
 
         m_vma_allocator = vma::createAllocator(createinfo);
     }
@@ -1104,9 +1129,17 @@ namespace VKN {
     {
         return {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+            // Dynamic rendering extension is required for using dynamic rendering without render pass and framebuffer
             VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
             VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+            // Mesh shader extension is required for using mesh shaders
             VK_EXT_MESH_SHADER_EXTENSION_NAME,
+            // Raytracing extensions (in dependency order)
+            VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, // Base acceleration structure API
+            VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,   // Allows raytrace shader compilation and pipeline dispatch
+            VK_KHR_RAY_QUERY_EXTENSION_NAME, // Compute shaders can query acceleration structures (enables compute ray
+                                             // tracing)
+            VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, // Async acceleration structure builds (won't stall CPU)
         };
     }
 

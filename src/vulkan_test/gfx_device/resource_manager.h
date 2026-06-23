@@ -21,10 +21,10 @@ namespace VKN {
 
         void destroy();
 
+        void destroy_buffer(Buffer& buffer);
+
         // test function
         void create_mesh();
-
-        void destroy_buffer(Buffer& buffer);
 
         // I think we can remove this function? since now we have scratch allocator for dynamic buffer creation, and we can
         // directly use create_buffer for static buffer creation
@@ -44,6 +44,22 @@ namespace VKN {
         Buffer get_storage_buffer(const std::string& name) const;
         Texture get_texture(const std::string& name) const;
         vk::Sampler get_sampler(const std::string& name) const;
+
+                // Build a Bottom-Level Acceleration Structure from vertex/index buffers
+        // triangles: array of indices (each 3 consecutive indices = 1 triangle)
+        // vertices: raw vertex positions (float3 data)
+        // Returns handle to BLAS in acceleration structure storage
+        VKN::BLAS build_blas_from_buffers(const std::string& name,
+            const void* triangle_indices, // uint32_t array
+            uint32_t triangle_count,      // number of triangles
+            const void* vertex_positions, // float3 array
+            uint32_t vertex_count);
+
+        // Build a Top-Level Acceleration Structure from BLAS instances
+        // blas_data: array of (BLAS + transform) pairs
+        // Returns handle to TLAS
+        VKN::TLAS build_tlas_from_blas_instances(
+            const std::string& name, const std::vector<std::pair<const VKN::BLAS*, VkTransformMatrixKHR>>& blas_instances);
 
       private:
         Buffer create_buffer(const Buffer_create_info& create_info);

@@ -346,4 +346,328 @@ namespace VKN {
         return it->second;
     }
 
+    VKN::BLAS Resource_manager::build_blas_from_buffers(const std::string& name,
+        const void* triangle_indices,
+        uint32_t triangle_count,
+        const void* vertex_positions,
+        uint32_t vertex_count)
+    {
+        auto& vk_device       = m_gfx_device.m_device;
+        auto& allocator       = m_gfx_device.m_vma_allocator;
+        auto&& command_buffer = m_gfx_device.m_single_use_command_buffer;
+
+        // Step 1: Create GPU buffers for geometry
+        // Todo: replace a fixed geometry with scene geometry, and replace a fixed vertex/index buffer with a dynamic one
+        // ========================================
+        // Triangle indices: 3 indices per triangle
+        size_t index_buffer_size = triangle_count * 3 * sizeof(uint32_t);
+        Buffer_create_info index_buffer_info{
+            .m_usage_flags = vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress,
+            .m_data        = triangle_indices,
+            .m_size        = index_buffer_size,
+        };
+        auto index_buffer      = create_buffer(index_buffer_info);
+        auto index_device_addr = vk_device.getBufferAddress(vk::BufferDeviceAddressInfo{.buffer = index_buffer.m_buffer});
+
+        // Vertex positions: float3 (12 bytes) per vertex
+        size_t vertex_buffer_size = vertex_count * sizeof(float) * 3;
+        Buffer_create_info vertex_buffer_info{
+            .m_usage_flags = vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress,
+            .m_data        = vertex_positions,
+            .m_size        = vertex_buffer_size,
+        };
+        auto vertex_buffer      = create_buffer(vertex_buffer_info);
+        auto vertex_device_addr = vk_device.getBufferAddress(vk::BufferDeviceAddressInfo{.buffer = vertex_buffer.m_buffer});
+
+        // Step 2: Describe triangle geometry for BLAS
+        // ===========================================
+        // VkAccelerationStructureGeometryTrianglesDataKHR describes triangle layout
+        vk::AccelerationStructureGeometryTrianglesDataKHR triangles_data{
+            .sType         = vk::StructureType::eAccelerationStructureGeometryTrianglesDataKHR,
+            .vertexFormat  = vk::Format::eR32G32B32Sfloat, // float3 vertices
+            .vertexData    = {.deviceAddress = vertex_device_addr},
+            .vertexStride  = sizeof(float) * 3, // Stride between vertices
+            .maxVertex     = vertex_count - 1,
+            .indexType     = vk::IndexType::eUint32, // uint32 indices
+            .indexData     = {.deviceAddress = index_device_addr},
+            .transformData = {.deviceAddress = 0}, // No per-triangle transforms
+        };
+
+        // Wrap triangle data in geometry structure
+        vk::AccelerationStructureGeometryKHR geometry{
+            .sType        = vk::StructureType::eAccelerationStructureGeometryKHR,
+            .geometryType = vk::GeometryTypeKHR::eTriangles,
+            .geometry     = {.triangles = triangles_data},
+            .flags        = vk::GeometryFlagBitsKHR::eOpaque,
+        };
+
+        // Step 3: Query build sizes
+        // =========================
+        // Ask GPU: "How much memory do I need to build BLAS with this geometry?"
+        vk::AccelerationStructureBuildGeometryInfoKHR build_info{
+            .sType         = vk::StructureType::eAccelerationStructureBuildGeometryInfoKHR,
+            .type          = vk::AccelerationStructureTypeKHR::eBottomLevel,              // BLAS (not TLAS)
+            .flags         = vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace, // Optimize for ray tracing speed
+            .geometryCount = 1,
+            .pGeometries   = &geometry,
+        };
+
+        vk::AccelerationStructureBuildSizesInfoKHR build_sizes =
+            vk_device.getAccelerationStructureBuildSizesKHR(vk::AccelerationStructureBuildTypeKHR::eDevice,
+                build_info,
+                triangle_count); // Pass triangle count, not vertex count
+
+        // Step 4: Create BLAS buffer and structure object
+        // ===============================================
+        vma::AllocationCreateInfo blas_alloc_info{
+            .usage = vma::MemoryUsage::eGpuOnly,
+        };
+
+        vk::BufferCreateInfo blas_buffer_info{
+            .size = build_sizes.accelerationStructureSize,
+            .usage =
+                vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+        };
+
+        auto [blas_allocation, blas_buffer] = allocator.createBuffer(blas_buffer_info, blas_alloc_info);
+
+        // Create the acceleration structure handle
+        vk::AccelerationStructureCreateInfoKHR as_create_info{
+            .buffer = blas_buffer,
+            .offset = 0,
+            .size   = build_sizes.accelerationStructureSize,
+            .type   = vk::AccelerationStructureTypeKHR::eBottomLevel,
+        };
+
+        auto blas_handle = vk_device.createAccelerationStructureKHR(as_create_info);
+
+        // Step 5: Allocate scratch buffer for build
+        // =========================================
+        // GPU acceleration structure builds need temporary scratch space
+        vma::AllocationCreateInfo scratch_alloc_info{
+            .usage = vma::MemoryUsage::eGpuOnly,
+        };
+
+        vk::BufferCreateInfo scratch_buffer_info{
+            .size  = build_sizes.buildScratchSize,
+            .usage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+        };
+
+        auto [scratch_allocation, scratch_buffer] = allocator.createBuffer(scratch_buffer_info, scratch_alloc_info);
+
+        auto scratch_device_addr = vk_device.getBufferAddress(vk::BufferDeviceAddressInfo{.buffer = scratch_buffer});
+
+        // Step 6: Record and submit build command
+        // =======================================
+
+        // Update build_info to point to allocated structures
+        build_info.dstAccelerationStructure  = blas_handle;
+        build_info.scratchData.deviceAddress = scratch_device_addr;
+
+        vk::AccelerationStructureBuildRangeInfoKHR build_range_info{
+            .primitiveCount  = triangle_count, // for BLAS; use instance_count for TLAS
+            .primitiveOffset = 0,
+            .firstVertex     = 0,
+            .transformOffset = 0,
+        };
+
+        // Record build command (executes on GPU)
+        command_buffer.buildAccelerationStructuresKHR(build_info, &build_range_info);
+
+        // Ensure BLAS is built before use
+        vk::MemoryBarrier2 barrier{
+            .srcStageMask  = vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR,
+            .srcAccessMask = vk::AccessFlagBits2::eAccelerationStructureWriteKHR,
+            .dstStageMask  = vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR,
+            .dstAccessMask = vk::AccessFlagBits2::eAccelerationStructureReadKHR,
+        };
+        vk::DependencyInfo dep{
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers    = &barrier,
+        };
+
+        command_buffer.pipelineBarrier2(dep);
+
+        // Step 7: Get device address of BLAS (needed for TLAS)
+        // ===================================================
+        vk::AccelerationStructureDeviceAddressInfoKHR blas_addr_info{
+            .accelerationStructure = blas_handle,
+        };
+        auto blas_device_address = vk_device.getAccelerationStructureAddressKHR(blas_addr_info);
+
+        // Step 8: Store and return BLAS
+        // =============================
+        VKN::BLAS blas{
+            .m_accel_struct =
+                {
+                    .m_accel_struct   = blas_handle,
+                    .m_allocation     = blas_allocation,
+                    .m_device_address = blas_device_address,
+                },
+            .m_name = name,
+        };
+
+        // Clean up temporary buffers (owned by create_buffer, will be freed)
+        // In production, you'd track index_buffer and vertex_buffer for lifetime
+
+        return blas;
+    }
+
+    VKN::TLAS Resource_manager::build_tlas_from_blas_instances(
+        const std::string& name, const std::vector<std::pair<const VKN::BLAS*, VkTransformMatrixKHR>>& blas_instances)
+    {
+        auto& vk_device = m_gfx_device.m_device;
+        auto& allocator = m_gfx_device.m_vma_allocator;
+        auto&& command_buffer = m_gfx_device.m_single_use_command_buffer;
+
+        // Step 1: Create instance buffer
+        // ==============================
+        // TLAS references BLASes through instances, each with a transform matrix
+        std::vector<VkAccelerationStructureInstanceKHR> instances;
+        instances.reserve(blas_instances.size());
+
+        for (uint32_t i = 0; i < blas_instances.size(); ++i) {
+            const auto& [blas, transform] = blas_instances[i];
+
+            VkAccelerationStructureInstanceKHR instance{
+                .transform                              = transform, // 3x4 transform matrix
+                .instanceCustomIndex                    = i,         // User-defined instance ID (usable in shaders)
+                .mask                                   = 0xFF,      // Visibility mask (0xFF = visible to all rays)
+                .instanceShaderBindingTableRecordOffset = 0,         // Shader binding table offset (for complex shaders)
+                .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,      // Don't cull back faces
+                .accelerationStructureReference = blas->m_accel_struct.m_device_address, // Reference to BLAS
+            };
+            instances.push_back(instance);
+        }
+
+        // Upload instances to GPU buffer
+        size_t instance_buffer_size = instances.size() * sizeof(VkAccelerationStructureInstanceKHR);
+        Buffer_create_info instance_buffer_info{
+            .m_usage_flags = vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress,
+            .m_data        = instances.data(),
+            .m_size        = instance_buffer_size,
+        };
+        auto instance_buffer = create_buffer(instance_buffer_info);
+        auto instance_device_addr =
+            vk_device.getBufferAddress(vk::BufferDeviceAddressInfo{.buffer = instance_buffer.m_buffer});
+
+        // Step 2: Describe instance geometry for TLAS
+        // ===========================================
+        vk::AccelerationStructureGeometryInstancesDataKHR instances_data{
+            .arrayOfPointers = VK_FALSE, // Instances are in contiguous array (not array of pointers)
+            .data            = {.deviceAddress = instance_device_addr},
+        };
+
+        vk::AccelerationStructureGeometryKHR geometry{
+            .geometryType = vk::GeometryTypeKHR::eInstances,
+            .geometry     = {.instances = instances_data},
+            .flags        = vk::GeometryFlagBitsKHR::eOpaque,
+        };
+
+        // Step 3: Query TLAS build sizes
+        // ==============================
+        uint32_t instance_count = static_cast<uint32_t>(blas_instances.size());
+
+        vk::AccelerationStructureBuildGeometryInfoKHR build_info{
+            .type          = vk::AccelerationStructureTypeKHR::eTopLevel, // TLAS (not BLAS)
+            .flags         = vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace,
+            .geometryCount = 1,
+            .pGeometries   = &geometry,
+        };
+
+        vk::AccelerationStructureBuildSizesInfoKHR build_sizes = vk_device.getAccelerationStructureBuildSizesKHR(
+            vk::AccelerationStructureBuildTypeKHR::eDevice, build_info, instance_count);
+
+        // Step 4: Create TLAS buffer and structure
+        // ========================================
+        vma::AllocationCreateInfo tlas_alloc_info{
+            .usage = vma::MemoryUsage::eGpuOnly,
+        };
+
+        vk::BufferCreateInfo tlas_buffer_info{
+            .size = build_sizes.accelerationStructureSize,
+            .usage =
+                vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+        };
+
+        auto [tlas_allocation, tlas_buffer] = allocator.createBuffer(tlas_buffer_info, tlas_alloc_info);
+
+        vk::AccelerationStructureCreateInfoKHR as_create_info{
+            .buffer = tlas_buffer,
+            .offset = 0,
+            .size   = build_sizes.accelerationStructureSize,
+            .type   = vk::AccelerationStructureTypeKHR::eTopLevel,
+        };
+
+        auto tlas_handle = vk_device.createAccelerationStructureKHR(as_create_info);
+
+        // Step 5: Allocate scratch buffer
+        // ===============================
+        vma::AllocationCreateInfo scratch_alloc_info{
+            .usage = vma::MemoryUsage::eGpuOnly,
+        };
+
+        vk::BufferCreateInfo scratch_buffer_info{
+            .size  = build_sizes.buildScratchSize,
+            .usage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+        };
+
+        auto [scratch_allocation, scratch_buffer] = allocator.createBuffer(scratch_buffer_info, scratch_alloc_info);
+
+        auto scratch_device_addr = vk_device.getBufferAddress(vk::BufferDeviceAddressInfo{.buffer = scratch_buffer});
+
+        // Step 6: Record and submit TLAS build
+        // ===================================
+
+        build_info.dstAccelerationStructure  = tlas_handle;
+        build_info.scratchData.deviceAddress = scratch_device_addr;
+
+        vk::AccelerationStructureBuildRangeInfoKHR build_range_info{
+            .primitiveCount  = instance_count, // use instance_count for TLAS
+            .primitiveOffset = 0,
+            .firstVertex     = 0,
+            .transformOffset = 0,
+        };
+
+        // Record build command (executes on GPU)
+        command_buffer.buildAccelerationStructuresKHR(build_info, &build_range_info);
+
+        // Memory barrier for TLAS build completion
+        vk::MemoryBarrier2 barrier{
+            .srcStageMask  = vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR,
+            .srcAccessMask = vk::AccessFlagBits2::eAccelerationStructureWriteKHR,
+            .dstStageMask  = vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
+            .dstAccessMask = vk::AccessFlagBits2::eAccelerationStructureReadKHR,
+        };
+        vk::DependencyInfo dep{
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers    = &barrier,
+        };
+        command_buffer.pipelineBarrier2(dep);
+
+        // Step 7: Get TLAS device address
+        // ==============================
+        vk::AccelerationStructureDeviceAddressInfoKHR tlas_addr_info{
+            .accelerationStructure = tlas_handle,
+        };
+        auto tlas_device_address = vk_device.getAccelerationStructureAddressKHR(tlas_addr_info);
+
+        // Step 8: Return TLAS
+        // ==================
+        VKN::TLAS tlas{
+            .m_accel_struct =
+                {
+                    .m_accel_struct   = tlas_handle,
+                    .m_allocation     = tlas_allocation,
+                    .m_device_address = tlas_device_address,
+                },
+            .m_name = name,
+        };
+
+        return tlas;
+    }
+
 } // namespace VKN

@@ -148,9 +148,76 @@ void App::create_scene()
     g_scene_state.bootstrap_demo_scene();
     g_scene_state.validate_indices_verbose();
     assert(g_scene_state.last_validation_result().m_ok);
-    
-    g_scene_state.upload_to_gpu(); 
+
+    g_scene_state.upload_to_gpu();
 
     main_renderer.set_scene_state(&g_scene_state);
     main_renderer.load_resource();
+
+    // ===== RAYTRACING SETUP: BLAS/TLAS =====
+
+    // Step 1: Create hardcoded triangle geometry
+    // ==========================================
+    // A simple triangle facing the camera at Z=0
+    // Camera is at Z=-3, looking forward (+Z)
+    std::vector<float> triangle_vertices = {
+        -0.5f,
+        -0.5f,
+        0.0f, // Vertex 0 (left-bottom)
+        0.5f,
+        -0.5f,
+        0.0f, // Vertex 1 (right-bottom)
+        0.0f,
+        0.5f,
+        0.0f, // Vertex 2 (top-center)
+    };
+
+    std::vector<uint32_t> triangle_indices = {
+        0,
+        1,
+        2, // Single triangle (counterclockwise when viewed from camera)
+    };
+
+    // Step 2: Build BLAS from triangle
+    // ================================
+    auto rt_blas = resource_manager.build_blas_from_buffers("rt_triangle_blas",
+        triangle_indices.data(),
+        static_cast<uint32_t>(triangle_indices.size() / 3), // triangle count
+        triangle_vertices.data(),
+        static_cast<uint32_t>(triangle_vertices.size() / 3) // vertex count
+    );
+
+    // Step 3: Create identity transform matrix for TLAS instance
+    // ===========================================================
+    // VkTransformMatrixKHR is 3x4 matrix in column-major order
+    VkTransformMatrixKHR identity_transform{.matrix = {
+                                                // Column 0 (right vector)
+                                                1.0f,
+                                                0.0f,
+                                                0.0f,
+                                                // Column 1 (up vector)
+                                                0.0f,
+                                                1.0f,
+                                                0.0f,
+                                                // Column 2 (forward vector)
+                                                0.0f,
+                                                0.0f,
+                                                1.0f,
+                                                // Column 3 (translation)
+                                                0.0f,
+                                                0.0f,
+                                                0.0f,
+                                            }};
+
+    // Step 4: Build TLAS with one BLAS instance
+    // =========================================
+    std::vector<std::pair<const VKN::BLAS*, VkTransformMatrixKHR>> tlas_instances{
+        {&rt_blas, identity_transform}, // One instance, no transform
+    };
+
+    auto rt_tlas = resource_manager.build_tlas_from_blas_instances("rt_triangle_tlas", tlas_instances);
+
+    // Store TLAS for later reference in raytracing dispatch
+    // (You'll use this in main_renderer.cpp)
+    OutputDebugStringA("BLAS/TLAS built successfully\n");
 }

@@ -4,34 +4,49 @@
 
 namespace VKN {
 
-	struct Buffer_create_info {
-		vk::BufferUsageFlags m_usage_flags;
+    struct Buffer_create_info {
+        vk::BufferUsageFlags m_usage_flags;
 
-		const void* m_data = nullptr;
-		size_t		m_size;
-	};
+        const void* m_data = nullptr;
+        size_t m_size;
+    };
 
-	struct Buffer {
-		vk::Buffer		m_buffer;
-		vma::Allocation m_allocation;
+    struct Buffer {
+        vk::Buffer m_buffer;
+        vma::Allocation m_allocation;
 
-		size_t m_size;
-	};
+        size_t m_size;
+    };
 
-	struct Texture {
-		vk::Image		m_image;
-		vma::Allocation m_alloc;
-		
-		vk::Format		m_format;
-		vk::ImageView	m_view;
+    struct Texture {
+        vk::Image m_image;
+        vma::Allocation m_alloc;
 
-		uint32_t m_width;
-		uint32_t m_height;
-	};
+        vk::Format m_format;
+        vk::ImageView m_view;
 
-	struct Mesh_buffer {
-		std::unique_ptr<Buffer> m_vb;
-		std::unique_ptr<Buffer> m_ib;
-	};
+        uint32_t m_width;
+        uint32_t m_height;
+    };
 
+    struct Mesh_buffer {
+        std::unique_ptr<Buffer> m_vb;
+        std::unique_ptr<Buffer> m_ib;
+    };
+
+    struct Acceleration_structure {
+        vk::AccelerationStructureKHR m_accel_struct;
+        vma::Allocation m_allocation;
+        vk::DeviceAddress m_device_address;
+    };
+
+    struct BLAS {
+        Acceleration_structure m_accel_struct;
+        std::string m_name;
+    };
+
+    struct TLAS {
+        Acceleration_structure m_accel_struct;
+        std::string m_name;
+    };
 } // namespace VKN
