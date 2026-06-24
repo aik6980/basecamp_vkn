@@ -1,5 +1,7 @@
 #pragma once
 
+#include "vma/vma.h"
+
 namespace VKN {
 
     class Device;
@@ -47,6 +49,7 @@ namespace VKN {
 
         void create_pipeline(vk::Format color_format, vk::Format depth_format);
         void create_compute_pipeline();
+        void create_raytracing_pipeline();
 
         const Reflected_descriptor_binding* find_binding(const std::string& reflected_name) const;
 
@@ -57,6 +60,7 @@ namespace VKN {
         std::weak_ptr<Shader> m_vs_handle;
         std::weak_ptr<Shader> m_ps_handle;
         std::weak_ptr<Shader> m_cs_handle;
+        std::weak_ptr<Shader> m_ray_lib_handle;
 
         Raster_stage_mask m_raster_stages = Raster_stage_mask::None;
 
@@ -69,6 +73,16 @@ namespace VKN {
         vk::Pipeline m_pipeline;
 
         vk::PipelineBindPoint m_bind_point = vk::PipelineBindPoint::eGraphics;
+
+        // Raytracing pipeline resources 
+        // Shader binding table (SBT) buffer and allocation
+        vk::Buffer m_sbt_buffer{};
+        vma::Allocation m_sbt_allocation{};
+
+        vk::StridedDeviceAddressRegionKHR m_sbt_raygen_region{};
+        vk::StridedDeviceAddressRegionKHR m_sbt_miss_region{};
+        vk::StridedDeviceAddressRegionKHR m_sbt_hit_region{};
+        vk::StridedDeviceAddressRegionKHR m_sbt_callable_region{};
 
       private:
         void create_descriptor_pipeline_layout();

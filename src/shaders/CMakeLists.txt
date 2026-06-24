@@ -35,10 +35,15 @@ macro(Dxc_compile src_files dxc_path profile entry_point stage_suffix spirv_opt)
 		cmake_path(APPEND OUTPUT_FILENAME ${EXECUTABLE_OUTPUT_PATH} ${PROJECT_NAME} ${rel_dir} ${file_wle})
 		
 		#set(OUTPUT_FILENAME ${EXECUTABLE_OUTPUT_PATH}/${PROJECT_NAME}/${file_wle})
+
+		set(entry_arg)
+		if(NOT "${entry_point}" STREQUAL "")
+			set(entry_arg -E ${entry_point})
+		endif()
 		
 		add_custom_command(
 			OUTPUT ${OUTPUT_FILENAME}.${stage_suffix}.obj ${OUTPUT_FILENAME}.${stage_suffix}.asm 
-			COMMAND ${dxc_path} -T ${profile} -E ${entry_point} ${spirv_opt} -Ni -Od -Fo ${OUTPUT_FILENAME}.${stage_suffix}.obj -Fc ${OUTPUT_FILENAME}.${stage_suffix}.asm -Zpr ${var}
+			COMMAND ${dxc_path} -T ${profile} ${entry_arg} ${spirv_opt} -Ni -Od -Fo ${OUTPUT_FILENAME}.${stage_suffix}.obj -Fc ${OUTPUT_FILENAME}.${stage_suffix}.asm -Zpr ${var}
 			COMMAND echo Effect Compiler ${var}
 			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 			#MAIN_DEPENDENCY ${var}
@@ -101,7 +106,7 @@ Dxc_compile("${RAS_VS_FILES}" ${DXC} "vs_6_0" "vsmain" "vs" "")
 Dxc_compile("${RAS_PS_FILES}" ${DXC} "ps_6_0" "psmain" "ps" "")
 Dxc_compile("${RAS_MS_FILES}" ${DXC} "ms_6_5" "msmain" "ms" "")
 Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" "csmain" "cs" "")
-Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "raymain" "ray" "")
+Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "" "ray" "")
 
 func_group_src("${ALL_FILES}")
 
@@ -148,6 +153,6 @@ Dxc_compile("${RAS_VS_FILES}" ${DXC} "vs_6_0" "vsmain" "vs" ${SPIRV_OPTS} )
 Dxc_compile("${RAS_PS_FILES}" ${DXC} "ps_6_0" "psmain" "ps" ${SPIRV_OPTS} )
 Dxc_compile("${RAS_MS_FILES}" ${DXC} "ms_6_5" "msmain" "ms" ${SPIRV_OPTS} )
 Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" "csmain" "cs" ${SPIRV_OPTS} )
-Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "raymain" "ray" ${SPIRV_OPTS} )
+Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "" "ray" ${SPIRV_OPTS} )
 
 func_group_src("${ALL_FILES}")

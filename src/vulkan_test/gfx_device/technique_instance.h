@@ -23,6 +23,8 @@ namespace VKN {
         bool bind_storage_image_by_name(const std::string& reflected_name, const std::string& _name);
         bool bind_storage_buffer_by_name(const std::string& reflected_name, const std::string& buffer_name);
 
+        bool bind_acceleration_structure_by_name(const std::string& reflected_name, const std::string& tlas_name);
+
         bool apply();
 
         Technique& m_tech;
@@ -33,5 +35,6 @@ namespace VKN {
         std::unordered_map<std::string, std::string> m_storage_image_map;
         std::unordered_map<std::string, std::vector<std::string>> m_sampled_image_array_map;
         std::unordered_map<std::string, std::string> m_sampler_map;
+        std::unordered_map<std::string, std::string> m_acceleration_structure_map;
     };
 } // namespace VKN

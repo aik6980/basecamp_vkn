@@ -114,9 +114,28 @@ namespace VKN {
         return true;
     }
 
+    bool Technique_instance::bind_acceleration_structure_by_name(
+        const std::string& reflected_name, const std::string& tlas_name)
+    {
+        const auto* reflected = m_tech.find_binding(reflected_name);
+        if (!reflected) {
+            return false;
+        }
+        if (reflected->m_descriptor_type != vk::DescriptorType::eAccelerationStructureKHR) {
+            return false;
+        }
+        if (tlas_name.empty()) {
+            return false;
+        }
+
+        // blas already created and stored in resource manager, so we just need to store the name for later use in apply()
+        m_acceleration_structure_map[reflected_name] = tlas_name;
+        return true;
+    }
+
     namespace {
 
-        enum class Pending_write_kind { Buffer, Image };
+        enum class Pending_write_kind { Buffer, Image, AccelerationStructure };
 
         struct Pending_write_plan {
             Pending_write_kind kind{};
@@ -130,7 +149,11 @@ namespace VKN {
             vk::DescriptorSet descriptor_set{};
             std::vector<vk::DescriptorBufferInfo> buffer_infos;
             std::vector<vk::DescriptorImageInfo> image_infos;
+            std::vector<vk::AccelerationStructureKHR> as_handles;
+            std::vector<vk::WriteDescriptorSetAccelerationStructureKHR> as_infos;
             std::vector<Pending_write_plan> plans;
+            // This will use Pending_write_plan to generate the actual vk::WriteDescriptorSet objects, which will be used to
+            // update the descriptor set.
             std::vector<vk::WriteDescriptorSet> writes;
         };
 
@@ -345,6 +368,40 @@ namespace VKN {
             });
         }
 
+        for (const auto& [reflected_name, tlas_name] : m_acceleration_structure_map) {
+            const auto* reflected =
+                find_binding_checked(m_tech, reflected_name, vk::DescriptorType::eAccelerationStructureKHR);
+            if (!reflected) {
+                return false;
+            }
+
+            auto tlas = resource_manager->get_tlas(tlas_name);
+            if (!tlas.m_accel_struct.m_accel_struct) {
+                return false;
+            }
+
+            auto& pending = ensure_set_allocated(reflected->m_set_layout_index, 0);
+
+            const size_t start = pending.as_handles.size();
+            pending.as_handles.push_back(tlas.m_accel_struct.m_accel_struct);
+
+            vk::WriteDescriptorSetAccelerationStructureKHR as_info{
+                .sType                      = vk::StructureType::eWriteDescriptorSetAccelerationStructureKHR,
+                .pNext                      = nullptr,
+                .accelerationStructureCount = 1,
+                .pAccelerationStructures    = nullptr, // will be set later when we build the vk::WriteDescriptorSet objects
+            };
+            pending.as_infos.push_back(as_info);
+
+            pending.plans.push_back(Pending_write_plan{
+                .kind             = Pending_write_kind::AccelerationStructure,
+                .binding          = reflected->m_binding_number,
+                .descriptor_type  = vk::DescriptorType::eAccelerationStructureKHR,
+                .descriptor_count = 1,
+                .start_index      = start,
+            });
+        }
+
         //  update all decriptor sets
         for (auto& [set_layout_index, pending] : pending_by_set_index) {
             (void)set_layout_index;
@@ -364,8 +421,16 @@ namespace VKN {
                 if (plan.kind == Pending_write_kind::Buffer) {
                     write.pBufferInfo = &pending.buffer_infos[plan.start_index];
                 }
+                else if (plan.kind == Pending_write_kind::Image) {
+                    write.pImageInfo = &pending.image_infos[plan.start_index];
+                }
+                else if (plan.kind == Pending_write_kind::AccelerationStructure) { // AccelerationStructure
+                    auto& as_info                   = pending.as_infos[plan.start_index];
+                    as_info.pAccelerationStructures = &pending.as_handles[plan.start_index];
+                    write.pNext                     = &as_info;
+                }
                 else {
-                    write.pImageInfo = pending.image_infos.data() + plan.start_index;
+                    assert(false && "Unknown Pending_write_kind");
                 }
 
                 pending.writes.push_back(write);

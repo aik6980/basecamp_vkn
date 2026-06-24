@@ -12,6 +12,15 @@ namespace VKN {
     {
         auto&& device = m_gfx_device.m_device;
 
+        if (m_sbt_buffer) {
+            device.destroyBuffer(m_sbt_buffer);
+            m_sbt_buffer = nullptr;
+        }
+        if (m_sbt_allocation) {
+            m_gfx_device.m_vma_allocator.freeMemory(m_sbt_allocation);
+            m_sbt_allocation = nullptr;
+        }
+
         device.destroyPipeline(m_pipeline);
         device.destroyPipelineLayout(m_pipeline_layout);
 
@@ -21,6 +30,170 @@ namespace VKN {
         m_descriptorset_layouts.clear();
 
         m_reflected_binding_map.clear();
+    }
+
+    void Technique::create_raytracing_pipeline()
+    {
+        // Key learning points in comments:
+        // Steps 1-4 are pipeline creation (similar to compute/graphics)
+        // Steps 5-6 handle GPU alignment quirks (different hardware has different requirements)
+        // Steps 7-9 are the SBT-specific part: get handles → allocate buffer → write with spacing
+        // Steps 10-11 convert the buffer into GPU-accessible regions that traceRaysKHR will use
+
+        auto&& device = m_gfx_device.m_device;
+        auto&& ray    = m_ray_lib_handle.lock();
+        if (!ray) {
+            throw std::runtime_error("Raytracing pipeline requires ray library shader handle");
+        }
+
+        // Step 1: Create descriptor set layout and pipeline layout from shader reflection
+        create_descriptor_pipeline_layout();
+
+        // Step 2: Define shader stages
+        // Each stage represents one shader function from the ray library (raygen, miss, closesthit)
+        std::vector<vk::PipelineShaderStageCreateInfo> stages;
+        stages.push_back(vk::PipelineShaderStageCreateInfo{
+            .stage  = vk::ShaderStageFlagBits::eRaygenKHR, // Ray generation shader (entry point)
+            .module = ray->m_shader_module,
+            .pName  = "raygen_main",
+        });
+        stages.push_back(vk::PipelineShaderStageCreateInfo{
+            .stage  = vk::ShaderStageFlagBits::eMissKHR, // Miss shader (executed when ray doesn't hit)
+            .module = ray->m_shader_module,
+            .pName  = "miss_main",
+        });
+        stages.push_back(vk::PipelineShaderStageCreateInfo{
+            .stage  = vk::ShaderStageFlagBits::eClosestHitKHR, // Closest-hit shader (executed at intersection)
+            .module = ray->m_shader_module,
+            .pName  = "closethit_main",
+        });
+
+        // Step 3: Define shader groups
+        // Groups tell the GPU how to route rays to different shader functions.
+        // Each group contains one or more shader stages and defines the entry point for that group type.
+        std::vector<vk::RayTracingShaderGroupCreateInfoKHR> groups;
+
+        // Group 0: Raygen - general type, just calls raygen_main
+        groups.push_back(vk::RayTracingShaderGroupCreateInfoKHR{
+            .type               = vk::RayTracingShaderGroupTypeKHR::eGeneral,
+            .generalShader      = 0, // Index into stages array
+            .closestHitShader   = VK_SHADER_UNUSED_KHR,
+            .anyHitShader       = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR,
+        });
+
+        // Group 1: Miss - general type, just calls miss_main
+        groups.push_back(vk::RayTracingShaderGroupCreateInfoKHR{
+            .type               = vk::RayTracingShaderGroupTypeKHR::eGeneral,
+            .generalShader      = 1, // Index into stages array
+            .closestHitShader   = VK_SHADER_UNUSED_KHR,
+            .anyHitShader       = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR,
+        });
+
+        // Group 2: Triangle hit group - contains closest-hit shader for triangle intersections
+        groups.push_back(vk::RayTracingShaderGroupCreateInfoKHR{
+            .type               = vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup,
+            .generalShader      = VK_SHADER_UNUSED_KHR,
+            .closestHitShader   = 2, // Index into stages array (closethit_main)
+            .anyHitShader       = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR,
+        });
+
+        // Step 4: Create raytracing pipeline
+        // The pipeline links stages, groups, and layout together
+        vk::RayTracingPipelineCreateInfoKHR rt_ci{
+            .stageCount                   = static_cast<uint32_t>(stages.size()),
+            .pStages                      = stages.data(),
+            .groupCount                   = static_cast<uint32_t>(groups.size()),
+            .pGroups                      = groups.data(),
+            .maxPipelineRayRecursionDepth = 1, // No recursive ray tracing (ray bounces)
+            .layout                       = m_pipeline_layout,
+        };
+
+        m_pipeline   = device.createRayTracingPipelineKHR({}, {}, rt_ci).value;
+        m_bind_point = vk::PipelineBindPoint::eRayTracingKHR;
+
+        // Step 5: Query GPU capabilities for shader binding table (SBT) alignment and sizing
+        // Different GPUs have different alignment requirements for SBT entries
+        vk::PhysicalDeviceRayTracingPipelinePropertiesKHR rt_props{};
+        vk::PhysicalDeviceProperties2 props2{};
+        props2.pNext = &rt_props;
+        m_gfx_device.m_physical_device.getProperties2(&props2);
+
+        // Helper lambda for alignment calculation: rounds up v to nearest multiple of a
+        auto align_up = [](uint32_t v, uint32_t a) -> uint32_t { return (v + a - 1) & ~(a - 1); };
+
+        // Step 6: Calculate SBT buffer layout and sizing
+        // Each group gets an entry in the SBT with proper GPU alignment
+        const uint32_t group_count = static_cast<uint32_t>(groups.size());
+        const uint32_t handle_size = rt_props.shaderGroupHandleSize;
+        // Calculate alignment within the group
+        const uint32_t handle_size_aligned = align_up(handle_size, rt_props.shaderGroupHandleAlignment);
+        // Calculate alignment between group
+        const uint32_t sbt_stride = align_up(handle_size_aligned, rt_props.shaderGroupBaseAlignment);
+        const uint32_t sbt_size   = sbt_stride * group_count;
+
+        // Step 7: Get shader group handles from the pipeline
+        // These are opaque binary blobs that represent the compiled shader groups
+        std::vector<uint8_t> handles(group_count * handle_size);
+        vk::Result result = m_gfx_device.m_device.getRayTracingShaderGroupHandlesKHR(m_pipeline, 0, group_count, handles.size(), handles.data());
+        if (result != vk::Result::eSuccess) {
+            assert("Failed to get ray tracing shader group handles");
+        }
+
+        // Step 8: Create GPU buffer for the SBT
+        // This buffer will contain the shader handles with proper alignment
+        vk::BufferCreateInfo sbt_ci{
+            .size        = sbt_size,
+            .usage       = vk::BufferUsageFlagBits::eShaderBindingTableKHR | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+            .sharingMode = vk::SharingMode::eExclusive,
+        };
+
+        // Allocate host-visible memory so we can write handles to it
+        vma::AllocationCreateInfo sbt_alloc_ci{};
+        sbt_alloc_ci.setUsage(vma::MemoryUsage::eAutoPreferHost);
+        sbt_alloc_ci.setFlags(
+            vma::AllocationCreateFlagBits::eHostAccessSequentialWrite | vma::AllocationCreateFlagBits::eMapped);
+
+        vma::AllocationInfo sbt_alloc_info{};
+        std::tie(m_sbt_allocation, m_sbt_buffer) =
+            m_gfx_device.m_vma_allocator.createBuffer(sbt_ci, sbt_alloc_ci, sbt_alloc_info);
+
+        // Step 9: Write shader handles into the SBT buffer with proper alignment
+        // Each group's handle is placed at offset (sbt_stride * group_index)
+        uint8_t* mapped = reinterpret_cast<uint8_t*>(sbt_alloc_info.pMappedData);
+        std::memset(mapped, 0, sbt_size); // Clear buffer first
+
+        // Copy each group's handle to its aligned offset
+        std::memcpy(mapped + sbt_stride * 0, handles.data() + handle_size * 0, handle_size); // Group 0 (raygen)
+        std::memcpy(mapped + sbt_stride * 1, handles.data() + handle_size * 1, handle_size); // Group 1 (miss)
+        std::memcpy(mapped + sbt_stride * 2, handles.data() + handle_size * 2, handle_size); // Group 2 (hit)
+
+        // Step 10: Get GPU device address of the SBT buffer
+        // This is used to reference the buffer during ray tracing dispatch
+        vk::DeviceAddress sbt_addr = device.getBufferAddress(vk::BufferDeviceAddressInfo{.buffer = m_sbt_buffer});
+
+        // Step 11: Create strided device address regions for each group type
+        // These regions tell traceRaysKHR where to find the shader entry points
+        m_sbt_raygen_region = vk::StridedDeviceAddressRegionKHR{
+            .deviceAddress = sbt_addr + sbt_stride * 0, // Points to group 0
+            .stride        = sbt_stride,                // Space between entries (if multiple)
+            .size          = sbt_stride,                // Size of this region
+        };
+        m_sbt_miss_region = vk::StridedDeviceAddressRegionKHR{
+            .deviceAddress = sbt_addr + sbt_stride * 1, // Points to group 1
+            .stride        = sbt_stride,
+            .size          = sbt_stride,
+        };
+        m_sbt_hit_region = vk::StridedDeviceAddressRegionKHR{
+            .deviceAddress = sbt_addr + sbt_stride * 2, // Points to group 2
+            .stride        = sbt_stride,
+            .size          = sbt_stride,
+        };
+
+        // Callable region is empty (we don't use callable shaders)
+        m_sbt_callable_region = vk::StridedDeviceAddressRegionKHR{};
     }
 
     void Technique::create_compute_pipeline()
@@ -207,14 +380,14 @@ namespace VKN {
             .pStages             = pipeline_shader_stages.data(),
             .pVertexInputState   = wants_ms ? nullptr : &pipeline_vertex_input_state_createinfo,
             .pInputAssemblyState = wants_ms ? nullptr : &pipeline_input_assembly_state_createinfo,
-            .pTessellationState  = nullptr,                                   // pTessellationState
-            .pViewportState      = &pipeline_viewport_state_createinfo,       // pViewportState
-            .pRasterizationState = &pipeline_rasterization_state_createinfo,  // pRasterizationState
-            .pMultisampleState   = &pipeline_multisample_state_createinfo,    // pMultisampleState
-            .pDepthStencilState  = &pipeline_depth_stencil_state_createinfo,  // pDepthStencilState
-            .pColorBlendState    = &pipeline_color_blend_state_createinfo,    // pColorBlendState
-            .pDynamicState       = &pipeline_dynamic_state_createinfo,        // pDynamicState
-            .layout              = m_pipeline_layout,                         // layout
+            .pTessellationState  = nullptr,                                  // pTessellationState
+            .pViewportState      = &pipeline_viewport_state_createinfo,      // pViewportState
+            .pRasterizationState = &pipeline_rasterization_state_createinfo, // pRasterizationState
+            .pMultisampleState   = &pipeline_multisample_state_createinfo,   // pMultisampleState
+            .pDepthStencilState  = &pipeline_depth_stencil_state_createinfo, // pDepthStencilState
+            .pColorBlendState    = &pipeline_color_blend_state_createinfo,   // pColorBlendState
+            .pDynamicState       = &pipeline_dynamic_state_createinfo,       // pDynamicState
+            .layout              = m_pipeline_layout,                        // layout
             .renderPass          = nullptr, // renderPass, and since we are using dynamic rendering this will set as null
             .subpass             = 0,
         };
@@ -253,6 +426,7 @@ namespace VKN {
         auto&& vs = m_vs_handle.lock();
         auto&& ps = m_ps_handle.lock();
         auto&& cs = m_cs_handle.lock();
+        auto&& ray = m_ray_lib_handle.lock();
 
         // Collect and merge descriptor set layouts from VS and PS by set_number.
         // Bindings at the same (set, binding) slot have their stageFlags OR-ed together.
@@ -340,6 +514,9 @@ namespace VKN {
         }
         if (cs) {
             collect_stage(*cs);
+        }
+        if (ray) {
+            collect_stage(*ray);
         }
 
         m_reflected_binding_map.clear();

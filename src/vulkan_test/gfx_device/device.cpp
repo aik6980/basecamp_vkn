@@ -622,6 +622,10 @@ namespace VKN {
             .rayTraversalPrimitiveCulling                          = VK_FALSE,
         };
 
+        auto&& ray_query_features = vk::PhysicalDeviceRayQueryFeaturesKHR{
+            .rayQuery = VK_TRUE,
+        };
+
         vkb::PhysicalDeviceSelector selector{vkb_instance};
 
         auto&& ret_physical_device = selector.set_surface(static_cast<VkSurfaceKHR>(m_surface))
@@ -633,6 +637,7 @@ namespace VKN {
                                          .add_required_extension_features(required_bda)
                                          .add_required_extension_features(accel_struct_features)
                                          .add_required_extension_features(raytracing_features)
+                                         .add_required_extension_features(ray_query_features)
                                          .select();
 
         if (!ret_physical_device) {

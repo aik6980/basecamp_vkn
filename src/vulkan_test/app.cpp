@@ -118,6 +118,9 @@ void App::create_scene()
     // create compute techniques
     shader_manager.register_compute_technique("test/uav_resource");
 
+    // create raytracing techniques
+    shader_manager.register_raytracing_technique("test/ray_tracing_triangle");
+
     // create Textures
     auto texture_size = 64u;
     auto&& texdata    = TextureDataGenerator::create_checkerboard_texture_default(texture_size);
@@ -136,8 +139,10 @@ void App::create_scene()
     auto&& texdata_solid = TextureDataGenerator::create_solid_texture(texture_size, XMCOLOR(1.0f, 0.0f, 1.0f, 1.0f));
     resource_manager.create_texture("t_solid_magenta", texdata_solid);
 
-    auto compute_out = TextureDataGenerator::create_solid_texture(texture_size, XMCOLOR(0.0f, 0.0f, 0.0f, 1.0f));
-    resource_manager.create_texture("t_compute_output", compute_out, vk::ImageUsageFlagBits::eStorage);
+    auto solid_black = TextureDataGenerator::create_solid_texture(texture_size, XMCOLOR(0.0f, 0.0f, 0.0f, 1.0f));
+    resource_manager.create_texture("t_compute_output", solid_black, vk::ImageUsageFlagBits::eStorage);
+
+    resource_manager.create_texture("t_raytracing_output", solid_black, vk::ImageUsageFlagBits::eStorage);
 
     // create samplers
     resource_manager.create_linear_wrap_sampler();

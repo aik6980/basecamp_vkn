@@ -70,6 +70,58 @@ void Main_renderer::draw()
 
     m_frame_graph->add_pass(compute_pass);
 
+    // Add RT pass
+    constexpr uint32_t kResRaytraceOutput = 4;
+
+    auto&& rt_output_texture = Gfx_main::resource_manager().get_texture("t_raytracing_output");
+
+    PassNode raytrace_pass;
+    raytrace_pass.name = "raytrace_triangle";
+
+    raytrace_pass.writes.push_back(ResourceUse{
+        .resource_id = kResRaytraceOutput,
+        .is_write    = true,
+        .layout      = vk::ImageLayout::eGeneral,
+        .access      = vk::AccessFlagBits2::eShaderStorageWrite,
+        .stage       = vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
+        .is_image    = true,
+        .image       = rt_output_texture.m_image,
+        .image_range =
+            vk::ImageSubresourceRange{
+                .aspectMask     = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel   = 0,
+                .levelCount     = 1,
+                .baseArrayLayer = 0,
+                .layerCount     = 1,
+            },
+    });
+
+    raytrace_pass.execute = [&](vk::CommandBuffer& cmd) {
+        auto&& technique = shader_manager.get_technique("test/ray_tracing_triangle").lock();
+        if (!technique) {
+            return;
+        }
+
+        auto&& instance = VKN::Technique_instance(*technique);
+
+        const bool tlas_ok = instance.bind_acceleration_structure_by_name("Scene_srv", "rt_triangle_tlas");
+        const bool out_ok  = instance.bind_storage_image_by_name("Output_uav", "t_raytracing_output");
+
+        cmd.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, technique->m_pipeline);
+        const bool apply_ok = tlas_ok && out_ok && instance.apply();
+        assert(apply_ok);
+
+        cmd.traceRaysKHR(&technique->m_sbt_raygen_region,
+            &technique->m_sbt_miss_region,
+            &technique->m_sbt_hit_region,
+            &technique->m_sbt_callable_region,
+            rt_output_texture.m_width,
+            rt_output_texture.m_height,
+            1);
+    };
+
+    m_frame_graph->add_pass(raytrace_pass);
+
     // Add raster pass:
     PassNode raster_pass;
     raster_pass.name = "raster_sample_uav_result";

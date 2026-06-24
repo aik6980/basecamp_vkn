@@ -45,7 +45,10 @@ namespace VKN {
         Texture get_texture(const std::string& name) const;
         vk::Sampler get_sampler(const std::string& name) const;
 
-                // Build a Bottom-Level Acceleration Structure from vertex/index buffers
+        BLAS get_blas(const std::string& name) const;
+        TLAS get_tlas(const std::string& name) const;
+
+        // Build a Bottom-Level Acceleration Structure from vertex/index buffers
         // triangles: array of indices (each 3 consecutive indices = 1 triangle)
         // vertices: raw vertex positions (float3 data)
         // Returns handle to BLAS in acceleration structure storage
@@ -71,6 +74,9 @@ namespace VKN {
         std::unordered_map<std::string, Texture> m_textures;
         std::unordered_map<std::string, vk::Sampler> m_samplers;
         std::unordered_map<std::string, Buffer> m_storage_buffers;
+        
+        std::unordered_map<std::string, BLAS> m_blas_map;
+        std::unordered_map<std::string, TLAS> m_tlas_map;
     };
 
 } // namespace VKN

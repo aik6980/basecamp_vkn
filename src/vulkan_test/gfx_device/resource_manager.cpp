@@ -37,6 +37,26 @@ namespace VKN {
             destroy_buffer(buffer);
         }
         m_storage_buffers.clear();
+
+        for (auto& [name, tlas] : m_tlas_map) {
+            if (tlas.m_accel_struct.m_accel_struct) {
+                m_gfx_device.m_device.destroyAccelerationStructureKHR(tlas.m_accel_struct.m_accel_struct);
+            }
+            if (tlas.m_accel_struct.m_allocation) {
+                m_gfx_device.m_vma_allocator.freeMemory(tlas.m_accel_struct.m_allocation);
+            }
+        }
+        m_tlas_map.clear();
+
+        for (auto& [name, blas] : m_blas_map) {
+            if (blas.m_accel_struct.m_accel_struct) {
+                m_gfx_device.m_device.destroyAccelerationStructureKHR(blas.m_accel_struct.m_accel_struct);
+            }
+            if (blas.m_accel_struct.m_allocation) {
+                m_gfx_device.m_vma_allocator.freeMemory(blas.m_accel_struct.m_allocation);
+            }
+        }
+        m_blas_map.clear();
     }
 
     void Resource_manager::create_mesh()
@@ -346,6 +366,20 @@ namespace VKN {
         return it->second;
     }
 
+    VKN::BLAS Resource_manager::get_blas(const std::string& name) const
+    {
+        auto it = m_blas_map.find(name);
+        assert(it != m_blas_map.end());
+        return it->second;
+    }
+
+    VKN::TLAS Resource_manager::get_tlas(const std::string& name) const
+    {
+        auto it = m_tlas_map.find(name);
+        assert(it != m_tlas_map.end());
+        return it->second;
+    }
+
     VKN::BLAS Resource_manager::build_blas_from_buffers(const std::string& name,
         const void* triangle_indices,
         uint32_t triangle_count,
@@ -512,14 +546,17 @@ namespace VKN {
         // Clean up temporary buffers (owned by create_buffer, will be freed)
         // In production, you'd track index_buffer and vertex_buffer for lifetime
 
+        // Store BLAS in map
+        m_blas_map[name] = blas;
+
         return blas;
     }
 
     VKN::TLAS Resource_manager::build_tlas_from_blas_instances(
         const std::string& name, const std::vector<std::pair<const VKN::BLAS*, VkTransformMatrixKHR>>& blas_instances)
     {
-        auto& vk_device = m_gfx_device.m_device;
-        auto& allocator = m_gfx_device.m_vma_allocator;
+        auto& vk_device       = m_gfx_device.m_device;
+        auto& allocator       = m_gfx_device.m_vma_allocator;
         auto&& command_buffer = m_gfx_device.m_single_use_command_buffer;
 
         // Step 1: Create instance buffer
@@ -666,6 +703,9 @@ namespace VKN {
                 },
             .m_name = name,
         };
+
+        // Store TLAS in map
+        m_tlas_map[name] = tlas;
 
         return tlas;
     }

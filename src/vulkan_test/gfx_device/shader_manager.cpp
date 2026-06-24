@@ -68,6 +68,22 @@ namespace VKN {
         return technique;
     }
 
+    std::weak_ptr<Technique> Shader_manager::register_raytracing_technique(const std::string& filename)
+    {
+        if (auto&& t = get_technique(filename); t.lock() != nullptr) {
+            return t;
+        }
+
+        auto&& ray_shader_handle = register_shader(filename + ".ray");
+
+        auto&& technique            = std::make_shared<Technique>(m_gfx_device);
+        technique->m_ray_lib_handle = ray_shader_handle;
+        technique->create_raytracing_pipeline();
+
+        m_technique_map.insert({filename, technique});
+        return technique;
+    }
+
     std::weak_ptr<Technique> Shader_manager::get_technique(std::string name)
     {
         auto&& itr = m_technique_map.find(name);
