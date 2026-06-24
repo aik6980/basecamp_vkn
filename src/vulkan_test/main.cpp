@@ -1,6 +1,7 @@
 
 
 #include "app.h"
+#include "gfx_device/device.h"
 
 const int WINDOW_WIDTH  = 1920 / 2;
 const int WINDOW_HEIGHT = 1080 / 2;
@@ -122,4 +123,11 @@ int RunMainWindow(HINSTANCE hInstance, int nCmdShow)
     }
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) { return RunMainWindow(hInstance, nCmdShow); }
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow)
+{
+    if (lpCmdLine && strstr(lpCmdLine, "--validate")) {
+        VKN::g_enable_validation = true;
+    }
+
+    return RunMainWindow(hInstance, nCmdShow);
+}

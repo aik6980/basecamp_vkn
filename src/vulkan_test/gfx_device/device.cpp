@@ -13,6 +13,7 @@
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 namespace VKN {
+    bool g_enable_validation = false;
 
     uint32_t Device::format_size(vk::Format format)
     {
@@ -554,15 +555,19 @@ namespace VKN {
                                                              vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
                                                              vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation};
 
-        auto&& ret_instance = instance_builder.require_api_version(m_req_api_version)
-                                  .enable_extensions(instance_extensions)
-                                  .request_validation_layers()
-                                  .set_debug_messenger_severity(
-                                      static_cast<VkDebugUtilsMessageSeverityFlagsEXT>(static_cast<VkFlags>(severity_flags)))
-                                  .set_debug_messenger_type(
-                                      static_cast<VkDebugUtilsMessageTypeFlagsEXT>(static_cast<VkFlags>(message_type_flags)))
-                                  .set_debug_callback(debug_callback)
-                                  .build();
+        instance_builder.require_api_version(m_req_api_version)
+            .enable_extensions(instance_extensions);
+
+        if (g_enable_validation) {
+            instance_builder.request_validation_layers()
+                .set_debug_messenger_severity(
+                    static_cast<VkDebugUtilsMessageSeverityFlagsEXT>(static_cast<VkFlags>(severity_flags)))
+                .set_debug_messenger_type(
+                    static_cast<VkDebugUtilsMessageTypeFlagsEXT>(static_cast<VkFlags>(message_type_flags)))
+                .set_debug_callback(debug_callback);
+        }
+
+        auto&& ret_instance = instance_builder.build();
 
         if (!ret_instance) {
             throw std::runtime_error("Failed to create instance");

@@ -11,6 +11,7 @@ namespace Retired_code {
 }
 
 namespace VKN {
+    extern bool g_enable_validation;
 
     class Resource_manager;
     class Shader_manager;

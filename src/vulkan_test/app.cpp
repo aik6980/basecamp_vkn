@@ -194,25 +194,8 @@ void App::create_scene()
 
     // Step 3: Create identity transform matrix for TLAS instance
     // ===========================================================
-    // VkTransformMatrixKHR is 3x4 matrix in column-major order
-    VkTransformMatrixKHR identity_transform{.matrix = {
-                                                // Column 0 (right vector)
-                                                1.0f,
-                                                0.0f,
-                                                0.0f,
-                                                // Column 1 (up vector)
-                                                0.0f,
-                                                1.0f,
-                                                0.0f,
-                                                // Column 2 (forward vector)
-                                                0.0f,
-                                                0.0f,
-                                                1.0f,
-                                                // Column 3 (translation)
-                                                0.0f,
-                                                0.0f,
-                                                0.0f,
-                                            }};
+    VkTransformMatrixKHR identity_transform{
+        .matrix = {{1.0f, 0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f}}};
 
     // Step 4: Build TLAS with one BLAS instance
     // =========================================
