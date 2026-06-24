@@ -1,4 +1,4 @@
-### Raytracing BLAS/TLAS Spike (Status: Core Infrastructure Complete - Shader/Pipeline Integration Active)
+### Raytracing BLAS/TLAS Spike (Status: Raytrace Pipeline + Pass Integrated, Final Visualization Wiring In Progress)
 
 **Goal**
 - Build minimal Vulkan raytracing infrastructure (BLAS/TLAS) for foundational ray-triangle tracing.
@@ -30,10 +30,14 @@
 6. Done: Created single hardcoded triangle vertex/index buffers in app initialization.
 7. Done: Built BLAS from triangle buffers in app initialization.
 8. Done: Built TLAS with single BLAS instance in app initialization.
-9. Not started: Write raytracing shaders (simple_raytracing.rgen, .rchit, .rmiss).
-10. Not started: Create raytracing pipeline in shader_manager.
-11. In progress: Add raytrace dispatch pass to framegraph (before raster pass).
-12. Not started: Integrate raytrace output texture sampling in raster pass.
+9. Done: Wrote raytracing shader library (`raygen_main`, `closethit_main`, `miss_main`) in `test/ray_tracing_triangle.ray.hlsl`.
+10. Done: Added raytracing technique registration in shader_manager and raytracing pipeline creation in Technique (including SBT regions).
+11. Done: Added raytrace dispatch pass to framegraph (before raster pass), including TLAS + storage image bindings and `traceRaysKHR` dispatch.
+12. In progress: Integrate raytrace output texture sampling in raster pass (raster path still samples `t_compute_output`).
+
+**Known Issues / Active Debugging**
+- Nsight attach is currently unstable in this branch and still being debugged.
+- Validation-layer configuration is currently toggled for capture/debug workflows.
 
 **Validation Checklist**
 - BLAS/TLAS creation completes without validation errors.
