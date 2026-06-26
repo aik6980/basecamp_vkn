@@ -126,13 +126,15 @@ void Main_renderer::draw()
     PassNode raster_pass;
     raster_pass.name = "raster_sample_uav_result";
     raster_pass.reads.push_back(ResourceUse{
-        .resource_id = kResComputeOutput,
+        //.resource_id = kResComputeOutput,
+        .resource_id = kResRaytraceOutput,
         .is_write    = false,
         .layout      = vk::ImageLayout::eShaderReadOnlyOptimal,
         .access      = vk::AccessFlagBits2::eShaderSampledRead,
         .stage       = vk::PipelineStageFlagBits2::eFragmentShader,
         .is_image    = true,
-        .image       = compute_output_texture.m_image,
+        //.image       = compute_output_texture.m_image,
+        .image       = rt_output_texture.m_image,
         .image_range =
             vk::ImageSubresourceRange{
                 .aspectMask     = vk::ImageAspectFlagBits::eColor,
@@ -237,7 +239,8 @@ void Main_renderer::draw()
             auto&& technique_instance = VKN::Technique_instance(*technique);
 
             // const bool single_ok = technique_instance.bind_sampled_image_by_name("ColourTex_srv", "t_solid_magenta");
-            const bool single_ok = technique_instance.bind_sampled_image_by_name("ColourTex_srv", "t_compute_output");
+            // const bool single_ok = technique_instance.bind_sampled_image_by_name("ColourTex_srv", "t_compute_output");
+            const bool single_ok = technique_instance.bind_sampled_image_by_name("ColourTex_srv", "t_raytracing_output");
 
             std::vector<std::string> bindless_textures = {
                 "t_checkerboard",

@@ -27,11 +27,11 @@ namespace VKN {
         });
 
         m_scene.m_transforms.push_back(
-            Render_transform{.m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(-0.55f, 0.35f, 0.0f)});
+            Render_transform{.m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(-0.55f, 0.5f, 0.0f)});
         m_scene.m_transforms.push_back(
-            Render_transform{.m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.00f, 0.35f, 0.0f)});
+            Render_transform{.m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.00f, 0.5f, 0.0f)});
         m_scene.m_transforms.push_back(
-            Render_transform{.m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.55f, 0.35f, 0.0f)});
+            Render_transform{.m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.55f, 0.5f, 0.0f)});
         m_scene.m_transforms.push_back(Render_transform{
             .m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(-0.30f, -0.25f, 0.0f)});
         m_scene.m_transforms.push_back(
