@@ -21,11 +21,71 @@ void Main_renderer::draw()
 
     m_frame_graph->clear();
 
-    // local resource id:
-    constexpr uint32_t kResComputeOutput = 1;
-    constexpr uint32_t kResRenderTarget  = 2;
+    switch (m_render_mode) {
+    case Render_mode::MainScene3D:
+        // build_main_scene_passes(*m_frame_graph);
+        break;
+    case Render_mode::VerificationCompute:
+        build_verification_compute_passes(*m_frame_graph);
+        break;
+    case Render_mode::VerificationRaytrace:
+        build_verification_raytrace_passes(*m_frame_graph);
+        break;
+    case Render_mode::VerificationBindless:
+        // build_verification_bindless_passes(*m_frame_graph);
+        break;
+    case Render_mode::CombinedDebug:
+    default:
+        build_combined_debug_passes(*m_frame_graph);
+        break;
+    }
+
+    append_blit_and_present_passes(*m_frame_graph);
+
+    // compile and execute frame graph
+    m_frame_graph->compile();
+    m_frame_graph->execute(*command_buffer);
+    if (m_dump_framegraph_requested) {
+        m_dump_framegraph_requested = false;
+
+        const std::string dot     = m_frame_graph->build_debug_dot();
+        const std::string mermaid = m_frame_graph->build_debug_mermaid();
+
+        namespace fs = std::filesystem;
+        fs::create_directories("framegraph");
+
+        const auto t = static_cast<long long>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+                .count());
+
+        const fs::path dot_path = fs::path("framegraph") / ("framegraph_" + std::to_string(t) + ".dot");
+        const fs::path mmd_path = fs::path("framegraph") / ("framegraph_" + std::to_string(t) + ".mmd");
+
+        {
+            std::ofstream f(dot_path, std::ios::binary);
+            f << dot;
+        }
+        {
+            std::ofstream f(mmd_path, std::ios::binary);
+            f << mermaid;
+        }
+
+        OutputDebugStringA(("FrameGraph exported: " + dot_path.string() + " , " + mmd_path.string() + "\n").c_str());
+    }
+}
+
+constexpr uint32_t kResComputeOutput = 1;
+constexpr uint32_t kResRenderTarget  = 2;
+
+void Main_renderer::build_verification_compute_passes(Frame_graph& frame_graph)
+{
+    auto&& gfx_device     = Gfx_main::gfx_device();
+    auto&& shader_manager = Gfx_main::shader_manager();
 
     auto&& compute_output_texture = Gfx_main::resource_manager().get_texture("t_compute_output");
+    const uint32_t compute_width  = compute_output_texture.m_width;
+    const uint32_t compute_height = compute_output_texture.m_height;
+
     // Add compute pass:
     PassNode compute_pass;
     compute_pass.name = "compute_write_uav";
@@ -47,8 +107,9 @@ void Main_renderer::draw()
             },
     });
 
-    compute_pass.execute = [&](vk::CommandBuffer& cmd) {
-        auto&& technique = shader_manager.get_technique("test/uav_resource").lock();
+    compute_pass.execute = [compute_width, compute_height](vk::CommandBuffer& cmd) {
+        auto&& shader_manager = Gfx_main::shader_manager();
+        auto&& technique      = shader_manager.get_technique("test/uav_resource").lock();
         if (technique) {
             auto&& technique_instance = VKN::Technique_instance(*technique);
 
@@ -62,18 +123,25 @@ void Main_renderer::draw()
             assert(bind_ok && apply_ok);
 
             // 2. dispatch compute shader with enough thread groups to cover the entire output texture
-            const auto group_count_x = (compute_output_texture.m_width + 7) / 8;
-            const auto group_count_y = (compute_output_texture.m_height + 7) / 8;
+            const auto group_count_x = (compute_width + 7) / 8;
+            const auto group_count_y = (compute_height + 7) / 8;
             cmd.dispatch(group_count_x, group_count_y, 1);
         }
     };
 
-    m_frame_graph->add_pass(compute_pass);
+    frame_graph.add_pass(compute_pass);
+}
 
-    // Add RT pass
-    constexpr uint32_t kResRaytraceOutput = 4;
+constexpr uint32_t kResRaytraceOutput = 4;
+
+void Main_renderer::build_verification_raytrace_passes(Frame_graph& frame_graph)
+{
+    auto&& gfx_device     = Gfx_main::gfx_device();
+    auto&& shader_manager = Gfx_main::shader_manager();
 
     auto&& rt_output_texture = Gfx_main::resource_manager().get_texture("t_raytracing_output");
+    const uint32_t rt_width  = rt_output_texture.m_width;
+    const uint32_t rt_height = rt_output_texture.m_height;
 
     PassNode raytrace_pass;
     raytrace_pass.name = "raytrace_triangle";
@@ -96,8 +164,9 @@ void Main_renderer::draw()
             },
     });
 
-    raytrace_pass.execute = [&](vk::CommandBuffer& cmd) {
-        auto&& technique = shader_manager.get_technique("test/ray_tracing_triangle").lock();
+    raytrace_pass.execute = [rt_width, rt_height](vk::CommandBuffer& cmd) {
+        auto&& shader_manager = Gfx_main::shader_manager();
+        auto&& technique      = shader_manager.get_technique("test/ray_tracing_triangle").lock();
         if (!technique) {
             return;
         }
@@ -115,13 +184,26 @@ void Main_renderer::draw()
             &technique->m_sbt_miss_region,
             &technique->m_sbt_hit_region,
             &technique->m_sbt_callable_region,
-            rt_output_texture.m_width,
-            rt_output_texture.m_height,
+            rt_width,
+            rt_height,
             1);
     };
 
-    m_frame_graph->add_pass(raytrace_pass);
+    frame_graph.add_pass(raytrace_pass);
+}
 
+void Main_renderer::build_combined_debug_passes(Frame_graph& frame_graph)
+{
+    auto&& gfx_device     = Gfx_main::gfx_device();
+    auto&& shader_manager = Gfx_main::shader_manager();
+
+    // Add compute pass:
+    build_verification_compute_passes(frame_graph);
+
+    // Add raytrace pass:
+    build_verification_raytrace_passes(frame_graph);
+
+    auto&& rt_output_texture = Gfx_main::resource_manager().get_texture("t_raytracing_output");
     // Add raster pass:
     PassNode raster_pass;
     raster_pass.name = "raster_sample_uav_result";
@@ -134,7 +216,7 @@ void Main_renderer::draw()
         .stage       = vk::PipelineStageFlagBits2::eFragmentShader,
         .is_image    = true,
         //.image       = compute_output_texture.m_image,
-        .image       = rt_output_texture.m_image,
+        .image = rt_output_texture.m_image,
         .image_range =
             vk::ImageSubresourceRange{
                 .aspectMask     = vk::ImageAspectFlagBits::eColor,
@@ -164,11 +246,15 @@ void Main_renderer::draw()
             },
     });
 
-    auto&& render_target_image_view = gfx_device.offscreen_colour_image_view();
-    auto&& depth_target_image       = gfx_device.backbuffer_depth_image();
+    auto scene_state = m_scene_state;
 
-    raster_pass.execute = [&](vk::CommandBuffer& cmd) {
+    raster_pass.execute = [scene_state](vk::CommandBuffer& cmd) {
+
+        auto&& gfx_device = Gfx_main::gfx_device();
+        auto&& shader_manager = Gfx_main::shader_manager();
         // setup render pass
+        auto&& render_target_image_view = gfx_device.offscreen_colour_image_view();
+        auto&& depth_target_image       = gfx_device.backbuffer_depth_image();
 
         vk::ClearColorValue clear_colour{std::array<float, 4>{0.2f, 0.2f, 0.2f, 0.2f}};
         vk::ClearDepthStencilValue clear_depth = {
@@ -196,22 +282,22 @@ void Main_renderer::draw()
 
         };
 
-        command_buffer->beginRendering(&rendering_info);
+        cmd.beginRendering(&rendering_info);
 
-        command_buffer->setViewport(0,
+        cmd.setViewport(0,
             vk::Viewport(0.0f,
                 0.0f,
                 static_cast<float>(rendering_info.renderArea.extent.width),
                 static_cast<float>(rendering_info.renderArea.extent.height),
                 0.0f,
                 1.0f));
-        command_buffer->setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), rendering_info.renderArea.extent));
+        cmd.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), rendering_info.renderArea.extent));
 
         // 1st draw
         {
             auto&& technique = shader_manager.get_technique("test/single_triangle").lock();
-            command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
-            command_buffer->draw(3, 1, 0, 0);
+            cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
+            cmd.draw(3, 1, 0, 0);
         }
 
         // 2nd draw
@@ -225,11 +311,11 @@ void Main_renderer::draw()
             float psData[]             = {0.8f, 0.1f, 0.6f};
             const bool psData_bound_ok = technique_instance.bind_constant_by_name("PsData_cbv", psData, sizeof(psData));
 
-            command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
+            cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
             const bool apply_ok = bound_ok && psData_bound_ok && technique_instance.apply();
             assert(apply_ok);
 
-            command_buffer->draw(3, 1, 0, 0);
+            cmd.draw(3, 1, 0, 0);
         }
 
         // 3rd draw
@@ -253,19 +339,19 @@ void Main_renderer::draw()
                 technique_instance.bind_sampled_image_by_name("ColourTexBindless_srv", bindless_textures);
             const bool sampler_ok = technique_instance.bind_sampler_by_name("Linear_sam", "s_linear_wrap");
 
-            command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
+            cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
             const bool apply_ok = single_ok && textures_ok && sampler_ok && technique_instance.apply();
             assert(apply_ok);
 
             auto total_instances = static_cast<uint32_t>(bindless_textures.size()) + 1; // +1 for single texture draw
-            command_buffer->draw(6, total_instances, 0, 0);
+            cmd.draw(6, total_instances, 0, 0);
         }
 
         // 4th draw - scene mesh instances
         {
-            if (m_scene_state && m_scene_state->need_validation()) {
-                const auto validation = m_scene_state->validate_indices_verbose();
-                const auto counters   = m_scene_state->counters();
+            if (scene_state && scene_state->need_validation()) {
+                const auto validation = scene_state->validate_indices_verbose();
+                const auto counters   = scene_state->counters();
 
                 std::string msg = "Scene counters: tex=" + std::to_string(counters.m_textures) +
                                   " mat=" + std::to_string(counters.m_materials) +
@@ -280,8 +366,8 @@ void Main_renderer::draw()
                 }
             }
 
-            if (m_scene_state && m_scene_state->last_validation_result().m_ok) {
-                const auto& scene = m_scene_state->scene();
+            if (scene_state && scene_state->last_validation_result().m_ok) {
+                const auto& scene = scene_state->scene();
 
                 for (const auto& instance : scene.m_instances) {
                     const auto& material  = scene.m_materials[instance.m_material_id];
@@ -310,26 +396,35 @@ void Main_renderer::draw()
                     const bool world_ok =
                         technique_instance.bind_constant_by_name("World_cbv", &world_data, sizeof(world_data));
 
-                    command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
+                    cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
                     const bool apply_ok = texture_ok && sampler_ok && world_ok && technique_instance.apply();
                     assert(apply_ok);
 
                     if (apply_ok) {
-                        command_buffer->drawMeshTasksEXT(1, 1, 1);
+                        cmd.drawMeshTasksEXT(1, 1, 1);
                     }
                 }
             }
         }
 
-        command_buffer->endRendering();
+        cmd.endRendering();
     };
 
-    m_frame_graph->add_pass(raster_pass);
+    frame_graph.add_pass(raster_pass);
+}
+
+constexpr uint32_t kResSwapchain = 3;
+
+void Main_renderer::append_blit_and_present_passes(Frame_graph& frame_graph)
+{
+    auto&& gfx_device     = Gfx_main::gfx_device();
+    auto&& shader_manager = Gfx_main::shader_manager();
+    auto&& command_buffer = gfx_device.curr_command_buffer();
 
     // copy offscreen render target to backbuffer
     // Add blit pass for copying render target to swapchain
-    constexpr uint32_t kResSwapchain = 3;
-    auto&& swapchain_image           = gfx_device.backbuffer_colour_image();
+    auto&& render_target_image = gfx_device.offscreen_colour_image();
+    auto&& swapchain_image     = gfx_device.backbuffer_colour_image();
 
     PassNode blit_pass;
     blit_pass.name = "blit_render_to_swapchain";
@@ -372,7 +467,13 @@ void Main_renderer::draw()
             },
     });
 
-    blit_pass.execute = [&](vk::CommandBuffer& cmd) {
+    blit_pass.execute = [](vk::CommandBuffer& cmd) {
+        auto&& gfx_device     = Gfx_main::gfx_device();
+        auto&& shader_manager = Gfx_main::shader_manager();
+
+        auto&& render_target_image = gfx_device.offscreen_colour_image();
+        auto&& swapchain_image     = gfx_device.backbuffer_colour_image();
+
         vk::ImageCopy copy_region{
             .srcSubresource =
                 vk::ImageSubresourceLayers{
@@ -401,7 +502,7 @@ void Main_renderer::draw()
             &copy_region);
     };
 
-    m_frame_graph->add_pass(blit_pass);
+    frame_graph.add_pass(blit_pass);
 
     // Present pass: transition swapchain image to present layout inside frame graph.
     PassNode present_pass;
@@ -425,36 +526,5 @@ void Main_renderer::draw()
     });
     present_pass.execute = [&](vk::CommandBuffer& cmd) { (void)cmd; };
 
-    m_frame_graph->add_pass(present_pass);
-
-    // compile and execute frame graph
-    m_frame_graph->compile();
-    m_frame_graph->execute(*command_buffer);
-    if (m_dump_framegraph_requested) {
-        m_dump_framegraph_requested = false;
-
-        const std::string dot     = m_frame_graph->build_debug_dot();
-        const std::string mermaid = m_frame_graph->build_debug_mermaid();
-
-        namespace fs = std::filesystem;
-        fs::create_directories("framegraph");
-
-        const auto t = static_cast<long long>(
-            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
-                .count());
-
-        const fs::path dot_path = fs::path("framegraph") / ("framegraph_" + std::to_string(t) + ".dot");
-        const fs::path mmd_path = fs::path("framegraph") / ("framegraph_" + std::to_string(t) + ".mmd");
-
-        {
-            std::ofstream f(dot_path, std::ios::binary);
-            f << dot;
-        }
-        {
-            std::ofstream f(mmd_path, std::ios::binary);
-            f << mermaid;
-        }
-
-        OutputDebugStringA(("FrameGraph exported: " + dot_path.string() + " , " + mmd_path.string() + "\n").c_str());
-    }
+    frame_graph.add_pass(present_pass);
 }

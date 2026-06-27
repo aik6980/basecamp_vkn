@@ -158,6 +158,7 @@ void App::create_scene()
 
     main_renderer.set_scene_state(&g_scene_state);
     main_renderer.load_resource();
+    main_renderer.set_render_mode(Main_renderer::Render_mode::CombinedDebug);
 
     // ===== RAYTRACING SETUP: BLAS/TLAS =====
 
