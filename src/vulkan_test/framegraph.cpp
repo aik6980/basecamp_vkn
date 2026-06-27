@@ -16,6 +16,38 @@ uint32_t Frame_graph::add_pass(PassNode pass)
     return static_cast<uint32_t>(m_passes.size() - 1);
 }
 
+uint32_t Frame_graph::get_or_create_resource_id(const std::string& name)
+{
+    assert(!name.empty());
+
+    if (auto it = m_resource_name_to_id.find(name); it != m_resource_name_to_id.end()) {
+        return it->second;
+    }
+
+    const uint32_t id = m_next_resource_id++;
+    m_resource_name_to_id.emplace(name, id);
+    m_resource_id_to_name.emplace(id, name);
+    return id;
+}
+
+const std::string& Frame_graph::resource_name(uint32_t id) const
+{
+    static const std::string k_unknown = "<unknown>";
+    if (auto it = m_resource_id_to_name.find(id); it != m_resource_id_to_name.end()) {
+        return it->second;
+    }
+    return k_unknown;
+}
+
+std::string Frame_graph::resource_label(uint32_t id) const
+{
+    const auto& name = resource_name(id);
+    if (name != "<unknown>") {
+        return name + " (#" + std::to_string(id) + ")";
+    }
+    return "res" + std::to_string(id);
+}
+
 bool Frame_graph::is_hazard(const ResourceUse& a, const ResourceUse& b)
 {
     if (a.resource_id != b.resource_id) {
@@ -208,7 +240,7 @@ std::string Frame_graph::build_debug_dot() const
                         continue;
                     has_hazard = true;
                     std::ostringstream l;
-                    l << "res" << ua.resource_id << " " << fg_use_kind(ua.is_write) << "->" << fg_use_kind(ub.is_write);
+                    l << "res" << resource_label(ua.resource_id) << " " << fg_use_kind(ua.is_write) << "->" << fg_use_kind(ub.is_write);
                     labels.push_back(l.str());
                 }
             }
@@ -260,7 +292,7 @@ std::string Frame_graph::build_debug_mermaid() const
                         continue;
                     has_hazard = true;
                     std::ostringstream l;
-                    l << "res" << ua.resource_id << " " << fg_use_kind(ua.is_write) << "->" << fg_use_kind(ub.is_write);
+                    l << "res" << resource_label(ua.resource_id) << " " << fg_use_kind(ua.is_write) << "->" << fg_use_kind(ub.is_write);
                     labels.push_back(l.str());
                 }
             }

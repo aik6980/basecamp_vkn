@@ -74,9 +74,6 @@ void Main_renderer::draw()
     }
 }
 
-constexpr uint32_t kResComputeOutput = 1;
-constexpr uint32_t kResRenderTarget  = 2;
-
 void Main_renderer::build_verification_compute_passes(Frame_graph& frame_graph)
 {
     auto&& gfx_device     = Gfx_main::gfx_device();
@@ -89,8 +86,10 @@ void Main_renderer::build_verification_compute_passes(Frame_graph& frame_graph)
     // Add compute pass:
     PassNode compute_pass;
     compute_pass.name = "compute_write_uav";
+
+    const uint32_t res_compute_output = frame_graph.get_or_create_resource_id("compute_output");
     compute_pass.writes.push_back(ResourceUse{
-        .resource_id = kResComputeOutput,
+        .resource_id = res_compute_output,
         .is_write    = true,
         .layout      = vk::ImageLayout::eGeneral,
         .access      = vk::AccessFlagBits2::eShaderStorageWrite,
@@ -132,8 +131,6 @@ void Main_renderer::build_verification_compute_passes(Frame_graph& frame_graph)
     frame_graph.add_pass(compute_pass);
 }
 
-constexpr uint32_t kResRaytraceOutput = 4;
-
 void Main_renderer::build_verification_raytrace_passes(Frame_graph& frame_graph)
 {
     auto&& gfx_device     = Gfx_main::gfx_device();
@@ -143,11 +140,12 @@ void Main_renderer::build_verification_raytrace_passes(Frame_graph& frame_graph)
     const uint32_t rt_width  = rt_output_texture.m_width;
     const uint32_t rt_height = rt_output_texture.m_height;
 
+    const uint32_t res_rt_output      = frame_graph.get_or_create_resource_id("raytrace_output");
+
     PassNode raytrace_pass;
     raytrace_pass.name = "raytrace_triangle";
-
     raytrace_pass.writes.push_back(ResourceUse{
-        .resource_id = kResRaytraceOutput,
+        .resource_id = res_rt_output,
         .is_write    = true,
         .layout      = vk::ImageLayout::eGeneral,
         .access      = vk::AccessFlagBits2::eShaderStorageWrite,
@@ -203,13 +201,18 @@ void Main_renderer::build_combined_debug_passes(Frame_graph& frame_graph)
     // Add raytrace pass:
     build_verification_raytrace_passes(frame_graph);
 
-    auto&& rt_output_texture = Gfx_main::resource_manager().get_texture("t_raytracing_output");
+    
+
     // Add raster pass:
     PassNode raster_pass;
     raster_pass.name = "raster_sample_uav_result";
+
+
+    auto&& rt_output_texture = Gfx_main::resource_manager().get_texture("t_raytracing_output");
+    const uint32_t res_rt_output      = frame_graph.get_or_create_resource_id("raytrace_output");
     raster_pass.reads.push_back(ResourceUse{
         //.resource_id = kResComputeOutput,
-        .resource_id = kResRaytraceOutput,
+        .resource_id = res_rt_output,
         .is_write    = false,
         .layout      = vk::ImageLayout::eShaderReadOnlyOptimal,
         .access      = vk::AccessFlagBits2::eShaderSampledRead,
@@ -228,8 +231,9 @@ void Main_renderer::build_combined_debug_passes(Frame_graph& frame_graph)
     });
 
     auto&& render_target_image = gfx_device.offscreen_colour_image();
+    const uint32_t res_render_target  = frame_graph.get_or_create_resource_id("render_target");
     raster_pass.writes.push_back(ResourceUse{
-        .resource_id = kResRenderTarget,
+        .resource_id = res_render_target,
         .is_write    = true,
         .layout      = vk::ImageLayout::eColorAttachmentOptimal,
         .access      = vk::AccessFlagBits2::eColorAttachmentWrite,
@@ -413,25 +417,24 @@ void Main_renderer::build_combined_debug_passes(Frame_graph& frame_graph)
     frame_graph.add_pass(raster_pass);
 }
 
-constexpr uint32_t kResSwapchain = 3;
-
 void Main_renderer::append_blit_and_present_passes(Frame_graph& frame_graph)
 {
     auto&& gfx_device     = Gfx_main::gfx_device();
-    auto&& shader_manager = Gfx_main::shader_manager();
-    auto&& command_buffer = gfx_device.curr_command_buffer();
 
     // copy offscreen render target to backbuffer
     // Add blit pass for copying render target to swapchain
     auto&& render_target_image = gfx_device.offscreen_colour_image();
     auto&& swapchain_image     = gfx_device.backbuffer_colour_image();
 
+    const uint32_t res_render_target  = frame_graph.get_or_create_resource_id("render_target");
+    const uint32_t res_swapchain      = frame_graph.get_or_create_resource_id("swapchain");
+
     PassNode blit_pass;
     blit_pass.name = "blit_render_to_swapchain";
 
     // Read from render target in transfer-src layout
     blit_pass.reads.push_back(ResourceUse{
-        .resource_id = kResRenderTarget,
+        .resource_id = res_render_target,
         .is_write    = false,
         .layout      = vk::ImageLayout::eTransferSrcOptimal,
         .access      = vk::AccessFlagBits2::eTransferRead,
@@ -450,7 +453,7 @@ void Main_renderer::append_blit_and_present_passes(Frame_graph& frame_graph)
 
     // Write to swapchain in transfer-dst layout
     blit_pass.writes.push_back(ResourceUse{
-        .resource_id = kResSwapchain,
+        .resource_id = res_swapchain,
         .is_write    = true,
         .layout      = vk::ImageLayout::eTransferDstOptimal,
         .access      = vk::AccessFlagBits2::eTransferWrite,
@@ -508,7 +511,7 @@ void Main_renderer::append_blit_and_present_passes(Frame_graph& frame_graph)
     PassNode present_pass;
     present_pass.name = "present_swapchain";
     present_pass.writes.push_back(ResourceUse{
-        .resource_id = kResSwapchain,
+        .resource_id = res_swapchain,
         .is_write    = true,
         .layout      = vk::ImageLayout::ePresentSrcKHR,
         .access      = vk::AccessFlagBits2::eNone,
@@ -524,7 +527,7 @@ void Main_renderer::append_blit_and_present_passes(Frame_graph& frame_graph)
                 .layerCount     = 1,
             },
     });
-    present_pass.execute = [&](vk::CommandBuffer& cmd) { (void)cmd; };
+    present_pass.execute = [](vk::CommandBuffer& cmd) { (void)cmd; };
 
     frame_graph.add_pass(present_pass);
 }
