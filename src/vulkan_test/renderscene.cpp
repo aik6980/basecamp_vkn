@@ -33,9 +33,9 @@ namespace VKN {
         m_scene.m_transforms.push_back(
             Render_transform{.m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.55f, 0.5f, 0.0f)});
         m_scene.m_transforms.push_back(Render_transform{
-            .m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(-0.30f, -0.25f, 0.0f)});
+            .m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(-0.30f, -0.25f, 0.4f)});
         m_scene.m_transforms.push_back(
-            Render_transform{.m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.30f, -0.25f, 0.0f)});
+            Render_transform{.m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.30f, -0.25f, -0.4f)});
 
         m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 0, .m_transform_id = 0});
         m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 1, .m_transform_id = 1});

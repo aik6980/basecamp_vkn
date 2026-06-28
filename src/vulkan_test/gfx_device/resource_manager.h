@@ -64,6 +64,9 @@ namespace VKN {
         VKN::TLAS build_tlas_from_blas_instances(
             const std::string& name, const std::vector<std::pair<const VKN::BLAS*, VkTransformMatrixKHR>>& blas_instances);
 
+        void create_depth_buffer(uint32_t width, uint32_t height, vk::Format format = vk::Format::eD24UnormS8Uint);
+        Texture depth_buffer() const { return m_depth_buffer; }
+
       private:
         Buffer create_buffer(const Buffer_create_info& create_info);
 
@@ -74,9 +77,11 @@ namespace VKN {
         std::unordered_map<std::string, Texture> m_textures;
         std::unordered_map<std::string, vk::Sampler> m_samplers;
         std::unordered_map<std::string, Buffer> m_storage_buffers;
-        
+
         std::unordered_map<std::string, BLAS> m_blas_map;
         std::unordered_map<std::string, TLAS> m_tlas_map;
+
+        Texture m_depth_buffer;
     };
 
 } // namespace VKN

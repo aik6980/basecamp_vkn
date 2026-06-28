@@ -61,10 +61,6 @@ namespace VKN {
         vk::ImageView backbuffer_colour_image_view() const { return m_swapchain_image_views[m_swapchain_buffer_idx]; }
         vk::Extent2D backbuffer_colour_size() const { return m_swapchain_image_size; }
 
-        // should be part of the frame pipeline?
-        vk::Format backbuffer_depth_format() const { return m_depth_buffer.m_format; }
-        vk::Image backbuffer_depth_image() const { return m_depth_buffer.m_image; }
-
         vk::Image offscreen_colour_image() const { return m_offscreen_colour.m_image; }
         vk::ImageView offscreen_colour_image_view() const { return m_offscreen_colour.m_view; }
         vk::Format offscreen_colour_format() const { return m_offscreen_colour.m_format; }
@@ -150,8 +146,6 @@ namespace VKN {
         vma::Allocator m_vma_allocator;
 
         // All the buffers and images should be managed by the reosurce manager or different class
-        // Buffer
-        Texture m_depth_buffer;
         // Offscreen render targets
         Texture m_offscreen_colour;
 

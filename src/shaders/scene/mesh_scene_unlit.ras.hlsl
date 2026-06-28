@@ -2,11 +2,16 @@
 SamplerState Linear_sam : register(s0);
 Texture2D ColourTex_srv : register(t1);
 
-struct WorldData
-{
+struct WorldData {
     float4x4 m_world;
 };
 ConstantBuffer<WorldData> World_cbv : register(b2);
+
+struct CameraData {
+    float4x4 m_view;
+    float4x4 m_projection;
+};
+ConstantBuffer<CameraData> Camera_cbv : register(b3);
 
 // Stage Data
 struct PS_INPUT {
@@ -29,8 +34,9 @@ void msmain(out vertices PS_INPUT verts[3], out indices uint3 tris[1])
     };
 
     for (uint i = 0; i < 3; ++i) {
-        float4 pos_ws = mul(float4(positions[i], 1.0), World_cbv.m_world);
-        verts[i].position = pos_ws;
+        float4 pos_ws     = mul(float4(positions[i], 1.0), World_cbv.m_world);
+        float4 pos_vs     = mul(pos_ws, Camera_cbv.m_view);
+        verts[i].position = mul(pos_vs, Camera_cbv.m_projection);
         verts[i].uv_coord = positions[i].xy + float2(0.5, 0.5);
     }
 

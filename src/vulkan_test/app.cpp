@@ -61,7 +61,7 @@ struct Auto_mode_cycle {
 
 Auto_mode_cycle g_auto_mode_cycle;
 
-constexpr float k_seconds_per_test = 1.25f;
+constexpr float k_seconds_per_test = 0.25f;
 
 // Keep only modes that currently have concrete pass builders.
 constexpr std::array<Main_renderer::Render_mode, 3> k_test_sequence = {
@@ -129,7 +129,9 @@ void App::create_scene()
 
     // for each render passes
     auto&& colour_format = gfx_device.backbuffer_colour_format();
-    auto&& depth_format  = gfx_device.backbuffer_depth_format();
+    resource_manager.create_depth_buffer(gfx_device.backbuffer_colour_size().width, gfx_device.backbuffer_colour_size().height);
+    auto&& depth_buffer = resource_manager.depth_buffer();
+    auto&& depth_format = depth_buffer.m_format;
 
     // create raster techniques
     shader_manager.register_raster_technique(

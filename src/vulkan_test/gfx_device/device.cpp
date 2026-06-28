@@ -484,7 +484,6 @@ namespace VKN {
         create_command_buffer();
 
         create_descriptor_pool();
-        create_depth_buffer();
 
         // off screen render target
         create_offscreen_colour_target();
@@ -740,7 +739,6 @@ namespace VKN {
 
         // destroy resources
         m_resource_manager->destroy();
-        destroy_resource(m_depth_buffer);
 
         destroy_offscreen_colour_target();
 
@@ -858,62 +856,6 @@ namespace VKN {
         for (uint32_t i = 0; i < m_frame_resource.size(); ++i) {
             m_frame_resource[i]->m_command_buffer = command_buffers[i];
         }
-    }
-
-    void Device::create_depth_buffer()
-    {
-        const vk::Format depth_format          = vk::Format::eD24UnormS8Uint;
-        vk::FormatProperties format_properties = m_physical_device.getFormatProperties(depth_format);
-
-        vk::ImageTiling tiling;
-        if (format_properties.linearTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
-            tiling = vk::ImageTiling::eLinear;
-        }
-        else if (format_properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
-            tiling = vk::ImageTiling::eOptimal;
-        }
-        else {
-            throw std::runtime_error("DepthStencilAttachment is not supported for D16Unorm depth format.");
-        }
-
-        auto&& r = get_window_rect();
-
-        vk::ImageCreateInfo image_createinfo{
-            .imageType   = vk::ImageType::e2D,
-            .format      = depth_format,
-            .extent      = vk::Extent3D(r.Width(), r.Height(), 1),
-            .mipLevels   = 1,
-            .arrayLayers = 1,
-            .samples     = vk::SampleCountFlagBits::e1,
-            .tiling      = tiling,
-            .usage       = vk::ImageUsageFlagBits::eDepthStencilAttachment,
-        };
-
-        vma::AllocationCreateInfo alloc_createinfo;
-        alloc_createinfo.usage = vma::MemoryUsage::eAuto;
-
-        m_depth_buffer.m_format = depth_format;
-
-        std::tie(m_depth_buffer.m_alloc, m_depth_buffer.m_image) =
-            m_vma_allocator.createImage(image_createinfo, alloc_createinfo);
-
-        // create image views
-        vk::ImageViewCreateInfo image_view_createinfo{
-            .flags    = vk::ImageViewCreateFlags(),
-            .image    = m_depth_buffer.m_image,
-            .viewType = vk::ImageViewType::e2D,
-            .format   = depth_format,
-            .subresourceRange =
-                vk::ImageSubresourceRange{
-                    .aspectMask     = vk::ImageAspectFlagBits::eDepth,
-                    .baseMipLevel   = 0,
-                    .levelCount     = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount     = 1,
-                },
-        };
-
-        m_depth_buffer.m_view = m_device.createImageView(image_view_createinfo);
     }
 
     void Device::create_sync_object()

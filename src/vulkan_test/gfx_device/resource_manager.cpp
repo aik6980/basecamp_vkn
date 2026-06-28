@@ -57,6 +57,17 @@ namespace VKN {
             }
         }
         m_blas_map.clear();
+
+        // todo: make share function with texture destroy function above
+        if (m_depth_buffer.m_view) {
+            m_gfx_device.m_device.destroyImageView(m_depth_buffer.m_view);
+        }
+        if (m_depth_buffer.m_alloc) {
+            m_gfx_device.m_vma_allocator.freeMemory(m_depth_buffer.m_alloc);
+        }
+        if (m_depth_buffer.m_image) {
+            m_gfx_device.m_device.destroyImage(m_depth_buffer.m_image);
+        }
     }
 
     void Resource_manager::create_mesh()
@@ -708,6 +719,63 @@ namespace VKN {
         m_tlas_map[name] = tlas;
 
         return tlas;
+    }
+
+    void Resource_manager::create_depth_buffer(uint32_t width, uint32_t height, vk::Format format)
+    {
+        auto&& device        = m_gfx_device.m_device;
+        auto&& vma_allocator = m_gfx_device.m_vma_allocator;
+
+        vk::FormatProperties format_properties = m_gfx_device.m_physical_device.getFormatProperties(format);
+
+        vk::ImageTiling tiling;
+        if (format_properties.linearTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
+            tiling = vk::ImageTiling::eLinear;
+        }
+        else if (format_properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
+            tiling = vk::ImageTiling::eOptimal;
+        }
+        else {
+            throw std::runtime_error("DepthStencilAttachment is not supported for D16Unorm depth format.");
+        }
+
+        vk::ImageCreateInfo image_createinfo{
+            .imageType   = vk::ImageType::e2D,
+            .format      = format,
+            .extent      = vk::Extent3D(width, height, 1),
+            .mipLevels   = 1,
+            .arrayLayers = 1,
+            .samples     = vk::SampleCountFlagBits::e1,
+            .tiling      = tiling,
+            .usage       = vk::ImageUsageFlagBits::eDepthStencilAttachment,
+        };
+
+        vma::AllocationCreateInfo alloc_createinfo;
+        alloc_createinfo.usage = vma::MemoryUsage::eAuto;
+
+        Texture depth_buffer{};
+        depth_buffer.m_format = format;
+
+        std::tie(depth_buffer.m_alloc, depth_buffer.m_image) = vma_allocator.createImage(image_createinfo, alloc_createinfo);
+
+        // create image views
+        vk::ImageViewCreateInfo image_view_createinfo{
+            .flags    = vk::ImageViewCreateFlags(),
+            .image    = depth_buffer.m_image,
+            .viewType = vk::ImageViewType::e2D,
+            .format   = format,
+            .subresourceRange =
+                vk::ImageSubresourceRange{
+                    .aspectMask     = vk::ImageAspectFlagBits::eDepth,
+                    .baseMipLevel   = 0,
+                    .levelCount     = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount     = 1,
+                },
+        };
+
+        depth_buffer.m_view = device.createImageView(image_view_createinfo);
+        m_depth_buffer      = depth_buffer;
     }
 
 } // namespace VKN

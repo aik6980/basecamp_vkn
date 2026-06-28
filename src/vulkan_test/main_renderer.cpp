@@ -113,6 +113,24 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
             },
     });
 
+    raster_pass.writes.push_back(ResourceUse{
+        .resource_id = frame_graph.get_or_create_resource_id("depth_buffer"),
+        .is_write    = true,
+        .layout      = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+        .access      = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+        .stage       = vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+        .is_image    = true,
+        .image       = Gfx_main::resource_manager().depth_buffer().m_image,
+        .image_range =
+            vk::ImageSubresourceRange{
+                .aspectMask     = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil,
+                .baseMipLevel   = 0,
+                .levelCount     = 1,
+                .baseArrayLayer = 0,
+                .layerCount     = 1,
+            },
+    });
+
     auto scene_state = m_scene_state;
 
     raster_pass.execute = [scene_state](vk::CommandBuffer& cmd) {
@@ -120,7 +138,7 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
         auto&& shader_manager = Gfx_main::shader_manager();
         // setup render pass
         auto&& render_target_image_view = gfx_device.offscreen_colour_image_view();
-        auto&& depth_target_image       = gfx_device.backbuffer_depth_image();
+        auto&& depth_target_image       = Gfx_main::resource_manager().depth_buffer().m_image;
 
         vk::ClearColorValue clear_colour{std::array<float, 4>{0.2f, 0.2f, 0.2f, 0.2f}};
         vk::ClearDepthStencilValue clear_depth = {
@@ -136,6 +154,17 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
             .clearValue  = clear_colour,
         };
 
+        vk::ClearValue depth_clear_value{};
+        depth_clear_value.depthStencil = clear_depth;
+
+        vk::RenderingAttachmentInfo depth_attachment{
+            .imageView   = Gfx_main::resource_manager().depth_buffer().m_view,
+            .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            .loadOp      = vk::AttachmentLoadOp::eClear,
+            .storeOp     = vk::AttachmentStoreOp::eStore,
+            .clearValue  = depth_clear_value,
+        };
+
         vk::RenderingInfo rendering_info{
             .renderArea =
                 {
@@ -145,6 +174,7 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
             .layerCount           = 1,
             .colorAttachmentCount = 1,
             .pColorAttachments    = &colour_attachment,
+            .pDepthAttachment     = &depth_attachment,
 
         };
 
@@ -208,8 +238,22 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
                     const bool world_ok =
                         technique_instance.bind_constant_by_name("World_cbv", &world_data, sizeof(world_data));
 
+                    // Camera data
+                    struct CameraDataCPU {
+                        Matrix m_view;
+                        Matrix m_projection;
+                    };
+                    const auto extent  = gfx_device.backbuffer_colour_size();
+                    const float aspect = extent.height > 0 ? (float)extent.width / (float)extent.height : 1.0f;
+
+                    CameraDataCPU camera_data{Matrix::CreateLookAt(Vector3(0.0f, 0.0f, -2.2f), Vector3::Zero, Vector3::Up),
+                        Matrix::CreatePerspectiveFieldOfView(DirectX::XM_PIDIV4, aspect, 0.1f, 100.0f)};
+
+                    const bool camera_ok =
+                        technique_instance.bind_constant_by_name("Camera_cbv", &camera_data, sizeof(camera_data));
+
                     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
-                    const bool apply_ok = texture_ok && sampler_ok && world_ok && technique_instance.apply();
+                    const bool apply_ok = texture_ok && sampler_ok && world_ok && camera_ok && technique_instance.apply();
                     assert(apply_ok);
 
                     if (apply_ok) {
@@ -405,13 +449,8 @@ void Main_renderer::build_combined_debug_passes(Frame_graph& frame_graph)
         auto&& shader_manager = Gfx_main::shader_manager();
         // setup render pass
         auto&& render_target_image_view = gfx_device.offscreen_colour_image_view();
-        auto&& depth_target_image       = gfx_device.backbuffer_depth_image();
 
         vk::ClearColorValue clear_colour{std::array<float, 4>{0.2f, 0.2f, 0.2f, 0.2f}};
-        vk::ClearDepthStencilValue clear_depth = {
-            .depth   = 1.0f,
-            .stencil = 0u,
-        };
 
         vk::RenderingAttachmentInfo colour_attachment{
             .imageView   = render_target_image_view,
@@ -496,66 +535,6 @@ void Main_renderer::build_combined_debug_passes(Frame_graph& frame_graph)
 
             auto total_instances = static_cast<uint32_t>(bindless_textures.size()) + 1; // +1 for single texture draw
             cmd.draw(6, total_instances, 0, 0);
-        }
-
-        // 4th draw - scene mesh instances
-        {
-            if (scene_state && scene_state->need_validation()) {
-                const auto validation = scene_state->validate_indices_verbose();
-                const auto counters   = scene_state->counters();
-
-                std::string msg = "Scene counters: tex=" + std::to_string(counters.m_textures) +
-                                  " mat=" + std::to_string(counters.m_materials) +
-                                  " xform=" + std::to_string(counters.m_transforms) +
-                                  " inst=" + std::to_string(counters.m_instances) + "\n";
-                OutputDebugStringA(msg.c_str());
-
-                if (!validation.m_ok) {
-                    std::string err = "Scene validation failed at instance " + std::to_string(validation.m_instance_index) +
-                                      " reason: " + validation.m_reason + "\n";
-                    OutputDebugStringA(err.c_str());
-                }
-            }
-
-            if (scene_state && scene_state->last_validation_result().m_ok) {
-                const auto& scene = scene_state->scene();
-
-                for (const auto& instance : scene.m_instances) {
-                    const auto& material  = scene.m_materials[instance.m_material_id];
-                    const auto& transform = scene.m_transforms[instance.m_transform_id];
-
-                    auto&& technique = shader_manager.get_technique(material.m_technique_name).lock();
-                    if (!technique) {
-                        continue;
-                    }
-
-                    auto&& technique_instance = VKN::Technique_instance(*technique);
-
-                    bool texture_ok = false;
-                    if (material.m_base_colour_texture != VKN::k_invalid_render_id &&
-                        material.m_base_colour_texture < scene.m_textures.size()) {
-                        const auto& texture_ref = scene.m_textures[material.m_base_colour_texture];
-                        texture_ok =
-                            technique_instance.bind_sampled_image_by_name("ColourTex_srv", texture_ref.m_resource_name);
-                    }
-
-                    const bool sampler_ok = technique_instance.bind_sampler_by_name("Linear_sam", "s_linear_wrap");
-
-                    struct WorldDataCPU {
-                        Matrix m_world;
-                    } world_data = {transform.m_obj_to_world};
-                    const bool world_ok =
-                        technique_instance.bind_constant_by_name("World_cbv", &world_data, sizeof(world_data));
-
-                    cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
-                    const bool apply_ok = texture_ok && sampler_ok && world_ok && technique_instance.apply();
-                    assert(apply_ok);
-
-                    if (apply_ok) {
-                        cmd.drawMeshTasksEXT(1, 1, 1);
-                    }
-                }
-            }
         }
 
         cmd.endRendering();
@@ -722,7 +701,6 @@ void Main_renderer::build_fullscreen_sample_passes(
         auto&& shader_manager = Gfx_main::shader_manager();
         // setup render pass
         auto&& render_target_image_view = gfx_device.offscreen_colour_image_view();
-        auto&& depth_target_image       = gfx_device.backbuffer_depth_image();
 
         vk::ClearColorValue clear_colour{std::array<float, 4>{0.2f, 0.2f, 0.2f, 0.2f}};
         vk::ClearDepthStencilValue clear_depth = {
