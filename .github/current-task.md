@@ -1,53 +1,34 @@
-### Raytracing BLAS/TLAS Spike (Status: Raytrace Pipeline + Pass Integrated, Final Visualization Wiring In Progress)
+Current Focus: Build 3D Scene
 
-**Goal**
-- Build minimal Vulkan raytracing infrastructure (BLAS/TLAS) for foundational ray-triangle tracing.
-- Demonstrate screen-space raytracing with hardcoded triangle geometry.
-- Establish patterns that will scale to scene-driven raytracing later.
+#Status
+Raytracing BLAS/TLAS pipeline is integrated.
+Verification compute and raytrace fullscreen visualization are working.
+MainScene3D path is wired and running through framegraph.
+Depth buffer ownership has moved to resource manager (in progress stabilization).
 
-**Next Milestones**
-- Build 3D Scene
-- Return to Phase 5 completion: Bind scene storage buffers to mesh_scene_unlit shader.
-- Connect scene geometry to BLAS (read vertices from scene buffers instead of hardcoded).
-- Add compute culling pass for GPU-driven rendering.
-- Switch mesh and raytrace to indirect dispatch patterns.
+#Active Blocker
+Vulkan depth/stencil barrier and layout consistency for D24S8.
+Use matching depth-stencil layout and aspect mask across framegraph barrier and rendering attachment.
+Keep configuration aligned with whether separateDepthStencilLayouts is enabled.
+Immediate Tasks
+Make MainScene3D validation-clean.
+Finalize depth barrier/layout setup.
+Confirm depth attachment is always bound in rendering info.
+Keep verification paths stable after depth migration.
 
----
+#Next Milestones
+Bind scene storage buffers to mesh_scene_unlit.
+Connect scene geometry to BLAS instead of hardcoded triangle.
+Add compute culling groundwork.
+Move mesh and raytrace flows toward indirect dispatch.
 
-### GLM Migration Workstream (Planned: Start After BLAS/TLAS Spike Completion)
+#Definition of Done (This Stage)
+MainScene3D renders correctly every frame.
+No Vulkan validation errors on depth/barriers.
+Verification modes still work after scene/depth changes.
+Resize, minimize, and restore remain stable.
 
-**Why**
-- Move away from DirectX-dependent math types and APIs.
-- Standardize CPU-side math on a platform-agnostic library for Windows/Linux.
-- Keep compatibility with HLSL + DXC to SPIR-V workflow while preparing for GPU-physics integration.
+Planned Next: GLM Migration
 
-**Migration Goal**
-- Replace SimpleMath/DirectXMath usage in runtime code with GLM-based math wrappers.
-- Preserve behavior first, then clean up conversion and legacy helpers.
-
-**Scope (Initial Phase)**
-- Add GLM to build and include paths.
-- Introduce shared math typedef layer (`Vector2/3/4`, `Matrix`, `Quaternion`) backed by GLM.
-- Migrate high-touch runtime files first:
-	- `src/vulkan_test/renderscene.cpp`
-	- `src/vulkan_test/renderscene.h`
-	- `src/vulkan_test/app.cpp` (remove `XMCOLOR` usage path)
-- Remove unnecessary DirectXMath conversion calls (`XMLoad*`, `XMStore*`) from scene upload path.
-
-**Out of Scope (Initial GLM Phase)**
-- Full rewrite of all legacy utility modules.
-- Physics solver implementation details.
-- Shader-side math changes (HLSL remains unchanged).
-
-**Validation Checklist (GLM Migration)**
-- Project compiles on Windows with no new warnings in migrated files.
-- Scene rendering output matches pre-migration behavior.
-- Raytracing spike path remains functional.
-- No new validation-layer errors introduced by migration.
-- Linux build path remains viable (no new DirectX-only dependency added).
-
-**Definition of Done (Initial GLM Migration)**
-- GLM dependency integrated and used by shared runtime math aliases.
-- Migrated files no longer rely on SimpleMath/DirectXMath calls.
-- Existing render + raytrace demo path still runs with expected output.
-- Follow-up migration backlog captured in feature-list phases.
+Goal
+Replace DirectX-dependent math usage with GLM-backed runtime math types.
