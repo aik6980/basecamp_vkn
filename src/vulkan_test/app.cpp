@@ -53,6 +53,23 @@ void App::on_init(HINSTANCE hInstance, HWND hWnd)
     gfx_device.end_single_command_submission();
 }
 
+struct Auto_mode_cycle {
+    bool m_enabled  = true;
+    bool m_finished = false;
+    float m_start_s = 0.0f;
+};
+
+Auto_mode_cycle g_auto_mode_cycle;
+
+constexpr float k_seconds_per_test = 1.25f;
+
+// Keep only modes that currently have concrete pass builders.
+constexpr std::array<Main_renderer::Render_mode, 3> k_test_sequence = {
+    Main_renderer::Render_mode::VerificationCompute,
+    Main_renderer::Render_mode::VerificationRaytrace,
+    Main_renderer::Render_mode::CombinedDebug,
+};
+
 void App::on_update()
 {
 
@@ -67,6 +84,22 @@ void App::on_update()
 
     auto&& debug_str = DBG::Format(L"Cureent frame time %.4f ms", m_duration_frame.count() / 1000.0f);
     SetWindowText(m_hWnd, debug_str.c_str());
+
+    // Update automatic mode cycling
+    if (g_auto_mode_cycle.m_enabled && !g_auto_mode_cycle.m_finished) {
+        const float elapsed_s = App::get_duration_app() - g_auto_mode_cycle.m_start_s;
+        const uint32_t phase  = static_cast<uint32_t>(elapsed_s / k_seconds_per_test);
+
+        if (phase < k_test_sequence.size()) {
+            main_renderer.set_render_mode(k_test_sequence[phase]);
+        }
+        else {
+            // Hand off to final 3D scene mode after all verification passes.
+            main_renderer.set_render_mode(Main_renderer::Render_mode::MainScene3D);
+            g_auto_mode_cycle.m_finished = true;
+            OutputDebugStringA("Auto-cycle complete. Switched to MainScene3D.\n");
+        }
+    }
 
     // render the scene
     auto&& gfx_device = Gfx_main::gfx_device();
@@ -107,6 +140,8 @@ void App::create_scene()
 
     shader_manager.register_raster_technique(
         "test/bindless_textures", VKN::Raster_stage_mask::VS | VKN::Raster_stage_mask::PS, colour_format, depth_format);
+    shader_manager.register_raster_technique(
+        "test/fullscreen_texture", VKN::Raster_stage_mask::VS | VKN::Raster_stage_mask::PS, colour_format, depth_format);
 
     shader_manager.register_raster_technique(
         "test/mesh_shader_triangle", VKN::Raster_stage_mask::MS | VKN::Raster_stage_mask::PS, colour_format, depth_format);
@@ -158,7 +193,7 @@ void App::create_scene()
 
     main_renderer.set_scene_state(&g_scene_state);
     main_renderer.load_resource();
-    main_renderer.set_render_mode(Main_renderer::Render_mode::CombinedDebug);
+    main_renderer.set_render_mode(Main_renderer::Render_mode::VerificationCompute);
 
     // ===== RAYTRACING SETUP: BLAS/TLAS =====
 
@@ -209,4 +244,9 @@ void App::create_scene()
     // Store TLAS for later reference in raytracing dispatch
     // (You'll use this in main_renderer.cpp)
     OutputDebugStringA("BLAS/TLAS built successfully\n");
+
+    // Start automatic mode cycling
+    main_renderer.set_render_mode(k_test_sequence[0]);
+    g_auto_mode_cycle.m_start_s  = App::get_duration_app();
+    g_auto_mode_cycle.m_finished = false;
 }

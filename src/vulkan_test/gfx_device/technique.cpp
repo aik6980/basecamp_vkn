@@ -295,7 +295,7 @@ namespace VKN {
             .depthClampEnable        = false,                       // depthClampEnable
             .rasterizerDiscardEnable = false,                       // rasterizerDiscardEnable
             .polygonMode             = vk::PolygonMode::eFill,      // polygonMode
-            .cullMode                = vk::CullModeFlagBits::eBack, // cullMode
+            .cullMode                = vk::CullModeFlagBits::eNone, // cullMode
             .frontFace               = vk::FrontFace::eClockwise,   // frontFace
             .depthBiasEnable         = false,                       // depthBiasEnable
             .depthBiasConstantFactor = 0.0f,                        // depthBiasConstantFactor
@@ -362,7 +362,7 @@ namespace VKN {
         std::array<vk::DynamicState, 2> dynamic_states = {
             vk::DynamicState::eViewport,
             vk::DynamicState::eScissor,
-            // vk::DynamicState::eCullMode,
+            //vk::DynamicState::eCullMode,
             // vk::DynamicState::eFrontFace,
             // vk::DynamicState::ePrimitiveTopology,
         };

@@ -25,10 +25,13 @@ class Main_renderer {
     void build_main_scene_passes(Frame_graph& frame_graph);
     void append_blit_and_present_passes(Frame_graph& frame_graph);
 
+    void build_fullscreen_sample_passes(
+        Frame_graph& frame_graph, uint32_t src_resource_id, vk::Image src_image, const std::string& src_texture_name);
+
     std::unique_ptr<Frame_graph> m_frame_graph;
     VKN::Render_scene_state* m_scene_state = nullptr;
 
     bool m_dump_framegraph_requested = false;
 
-    Render_mode m_render_mode = Render_mode::CombinedDebug;
+    Render_mode m_render_mode = Render_mode::VerificationCompute;
 };
