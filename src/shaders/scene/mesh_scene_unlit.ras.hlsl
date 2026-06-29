@@ -28,9 +28,9 @@ void msmain(out vertices PS_INPUT verts[3], out indices uint3 tris[1])
     SetMeshOutputCounts(3, 1);
 
     float3 positions[3] = {
-        float3(0.0, -0.5, 0.0),
-        float3(0.5,  0.5, 0.0),
-        float3(-0.5, 0.5, 0.0),
+        float3(0.0,  0.5, 0.0),
+        float3(0.5,  -0.5, 0.0),
+        float3(-0.5, -0.5, 0.0),
     };
 
     for (uint i = 0; i < 3; ++i) {

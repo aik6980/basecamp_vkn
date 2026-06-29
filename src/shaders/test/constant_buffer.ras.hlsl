@@ -21,9 +21,9 @@ struct VS_OUTPUT
 
 static const float2 VPosition[] =
 {
-    float2(0.0, -0.25),
-    float2(0.25, 0.25),
-    float2(-0.25, 0.25),
+    float2(0.0, 0.25),
+    float2(0.25, -0.25),
+    float2(-0.25, -0.25),
 }; 
 
 static const float3 VColour[] =

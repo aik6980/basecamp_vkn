@@ -65,18 +65,10 @@ namespace VKN {
         vk::ImageView offscreen_colour_image_view() const { return m_offscreen_colour.m_view; }
         vk::Format offscreen_colour_format() const { return m_offscreen_colour.m_format; }
 
-        struct Transition_image_layout_info {
-            vk::ImageLayout dst_layout;
-            vk::ImageLayout src_layout;
-            vk::AccessFlags2 dst_access_flags;
-            vk::AccessFlags2 src_access_flags;
-            vk::PipelineStageFlags2 dst_stage_flags;
-            vk::PipelineStageFlags2 src_stage_flags;
-        };
-
-        void transition_image_layout(vk::Image image, const Transition_image_layout_info& transition_image_layout_info);
-
         vk::CommandBuffer* curr_command_buffer();
+
+        // Set viewport DirectX style (top-left origin, y down) and scissor rect to cover the entire render target.
+        void set_viewport_and_scissor(vk::CommandBuffer& cmd, const vk::Extent2D& extent);
 
         // Gfx subsystems
         std::unique_ptr<Resource_manager> m_resource_manager;

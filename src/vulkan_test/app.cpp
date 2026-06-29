@@ -61,7 +61,7 @@ struct Auto_mode_cycle {
 
 Auto_mode_cycle g_auto_mode_cycle;
 
-constexpr float k_seconds_per_test = 0.25f;
+constexpr float k_seconds_per_test = 1.25f;
 
 // Keep only modes that currently have concrete pass builders.
 constexpr std::array<Main_renderer::Render_mode, 3> k_test_sequence = {

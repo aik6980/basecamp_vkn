@@ -554,8 +554,7 @@ namespace VKN {
                                                              vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
                                                              vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation};
 
-        instance_builder.require_api_version(m_req_api_version)
-            .enable_extensions(instance_extensions);
+        instance_builder.require_api_version(m_req_api_version).enable_extensions(instance_extensions);
 
         if (g_enable_validation) {
             instance_builder.request_validation_layers()
@@ -1024,47 +1023,6 @@ namespace VKN {
         m_frame_count++;
     }
 
-    void Device::transition_image_layout(vk::Image image, const Transition_image_layout_info& transition_image_layout_info)
-    {
-        vk::ImageMemoryBarrier2 image_barrier{// Specify the pipeline stages and access masks for the barrier
-            .srcStageMask  = transition_image_layout_info.src_stage_flags,  // Source pipeline stage mask
-            .srcAccessMask = transition_image_layout_info.src_access_flags, // Source access mask
-            .dstStageMask  = transition_image_layout_info.dst_stage_flags,  // Destination pipeline stage mask
-            .dstAccessMask = transition_image_layout_info.dst_access_flags, // Destination access mask
-
-            // Specify the old and new layouts of the image
-            .oldLayout = transition_image_layout_info.src_layout, // Current layout of the image
-            .newLayout = transition_image_layout_info.dst_layout, // Target layout of the image
-
-            // We are not changing the ownership between queues
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-
-            // Specify the image to be affected by this barrier
-            .image = image,
-
-            // Define the subresource range (which parts of the image are affected)
-            .subresourceRange = {
-                // note: this should be parameterized if we want to use this function for depth/stencil image as well
-                .aspectMask     = vk::ImageAspectFlagBits::eColor, // Affects the color aspect of the image
-                .baseMipLevel   = 0,                               // Start at mip level 0
-                .levelCount     = 1,                               // Number of mip levels affected
-                .baseArrayLayer = 0,                               // Start at array layer 0
-                .layerCount     = 1                                // Number of array layers affected
-            }};
-
-        vk::DependencyInfo dependency_info{
-            .dependencyFlags         = vk::DependencyFlags(), // No special dependency flags
-            .imageMemoryBarrierCount = 1,
-            .pImageMemoryBarriers    = &image_barrier,
-        };
-
-        auto&& frame_resource_idx = curr_frame_resource_idx();
-        auto&& command_buffer     = m_frame_resource[frame_resource_idx]->m_command_buffer;
-
-        command_buffer.pipelineBarrier2(&dependency_info);
-    }
-
     std::vector<const char*> Device::get_instance_extensions()
     {
         std::vector<const char*> extensions = {VK_KHR_SURFACE_EXTENSION_NAME
@@ -1111,6 +1069,19 @@ namespace VKN {
         return m_frame_resource[frame_resource_idx]->m_command_buffer_opened
                    ? &m_frame_resource[frame_resource_idx]->m_command_buffer
                    : nullptr;
+    }
+
+    void Device::set_viewport_and_scissor(vk::CommandBuffer& cmd, const vk::Extent2D& extent)
+    {
+        auto&& viewport = vk::Viewport(0.0f,
+            static_cast<float>(extent.height),
+            static_cast<float>(extent.width),
+            static_cast<float>(extent.height) * -1.0f,
+            0.0f,
+            1.0f);
+
+        cmd.setViewport(0, 1, &viewport);
+        cmd.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), extent));
     }
 
     void Device::destroy_resource(Texture& resource)

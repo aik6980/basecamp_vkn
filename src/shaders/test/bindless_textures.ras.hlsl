@@ -24,10 +24,6 @@ static const uint Indices[] = {
     1,
 };
 
-// Vulkan Default Normalized Screen Coordinate - Similar to DirectX
-// X    -1..1   Left...Right
-// Y    -1..1   Top ..Bottom
-// Z    0..1    Near.. Far
 static const float2 Positions[] = {
     float2(-0.5, 0.5),
     float2(-0.5, -0.5),
@@ -74,6 +70,7 @@ VS_OUTPUT vsmain(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
 
         output.position       = float4(pos_world, 0.0, 1.0);
         output.uv_coord       = Positions[idx] + float2(0.5, 0.5);
+        output.uv_coord.y     = 1.0 - output.uv_coord.y; // flip Y for Vulkan and DirectX
         output.colour         = InstColours[instance_id];
         output.texture_id     = local_id;
         output.texture_source = 0; // bindless texture
@@ -87,6 +84,7 @@ VS_OUTPUT vsmain(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
 
         output.position       = float4(pos_world, 0.0, 1.0);
         output.uv_coord       = Positions[idx] + float2(0.5, 0.5);
+        output.uv_coord.y     = 1.0 - output.uv_coord.y; // flip Y for Vulkan and DirectX
         output.texture_id     = 0;
         output.texture_source = 1; // single texture
         return output;

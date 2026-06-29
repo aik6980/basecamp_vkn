@@ -1,9 +1,7 @@
 RWTexture2D<float4> ColourTex_uav : register(u0);
 
-// clang-format off
 [numthreads(8, 8, 1)]
 void csmain(uint3 tid : SV_DispatchThreadID)
-// clang-format on
 {
     uint width, height;
     ColourTex_uav.GetDimensions(width, height);

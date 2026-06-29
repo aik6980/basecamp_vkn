@@ -14,7 +14,10 @@ VS_OUTPUT vsmain(uint vertex_id : SV_VertexID)
 {
     VS_OUTPUT Output; 
     Output.uv_coord = float2((vertex_id << 1) & 2, vertex_id & 2); 
-    Output.position = float4(Output.uv_coord * float2(2,-2) + float2(-1,1), 0, 1); 
+    Output.position = float4(Output.uv_coord * 2.0 - 1.0, 0, 1); 
+
+    // Flip Y to correct texture cooordinate for Vulkan and DirectX    
+    Output.uv_coord.y = 1.0 - Output.uv_coord.y; 
     
     return Output;
 }

@@ -180,14 +180,8 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
 
         cmd.beginRendering(&rendering_info);
 
-        cmd.setViewport(0,
-            vk::Viewport(0.0f,
-                0.0f,
-                static_cast<float>(rendering_info.renderArea.extent.width),
-                static_cast<float>(rendering_info.renderArea.extent.height),
-                0.0f,
-                1.0f));
-        cmd.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), rendering_info.renderArea.extent));
+        // Set viewport and scissor to cover the entire render target
+        gfx_device.set_viewport_and_scissor(cmd, gfx_device.backbuffer_colour_size());
 
         // Scene mesh instances
         {
@@ -474,14 +468,8 @@ void Main_renderer::build_combined_debug_passes(Frame_graph& frame_graph)
 
         cmd.beginRendering(&rendering_info);
 
-        cmd.setViewport(0,
-            vk::Viewport(0.0f,
-                0.0f,
-                static_cast<float>(rendering_info.renderArea.extent.width),
-                static_cast<float>(rendering_info.renderArea.extent.height),
-                0.0f,
-                1.0f));
-        cmd.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), rendering_info.renderArea.extent));
+        // Set viewport and scissor to cover the entire render target
+        gfx_device.set_viewport_and_scissor(cmd, gfx_device.backbuffer_colour_size());
 
         // 1st draw
         {
@@ -730,14 +718,7 @@ void Main_renderer::build_fullscreen_sample_passes(
 
         cmd.beginRendering(&rendering_info);
 
-        cmd.setViewport(0,
-            vk::Viewport(0.0f,
-                0.0f,
-                static_cast<float>(rendering_info.renderArea.extent.width),
-                static_cast<float>(rendering_info.renderArea.extent.height),
-                0.0f,
-                1.0f));
-        cmd.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), rendering_info.renderArea.extent));
+        gfx_device.set_viewport_and_scissor(cmd, gfx_device.backbuffer_colour_size());
 
         auto&& technique          = shader_manager.get_technique("test/fullscreen_texture").lock();
         auto&& technique_instance = VKN::Technique_instance(*technique);

@@ -14,10 +14,11 @@ void raygen_main()
 
     float2 uv = (float2(pixel) + 0.5) / float2(dims);
     float2 ndc = uv * 2.0 - 1.0;
+    ndc.y *= -1.0; // Invert Y for Vulkan NDC
 
     RayDesc ray;
     ray.Origin = float3(0.0, 0.0, -3.0);
-    ray.Direction = normalize(float3(ndc.x, -ndc.y, 1.0));
+    ray.Direction = normalize(float3(ndc.x, ndc.y, 1.0));
     ray.TMin = 0.001;
     ray.TMax = 10000.0;
 

@@ -1,7 +1,7 @@
 #include "arcball.h"
 
 #include "app.h"
-#include "input/input_manager.h"
+//#include "input/input_manager.h"
 
 void Arcball::init(const Vector3& pos, const Vector3& target)
 {
@@ -12,6 +12,7 @@ void Arcball::init(const Vector3& pos, const Vector3& target)
 	m_orient	 = Quaternion::CreateFromRotationMatrix(world);
 }
 
+#if 0
 void Arcball::update()
 {
 	switch (m_state) {
@@ -70,6 +71,7 @@ void Arcball::update()
 	auto&& zoom = App::input().mouse_scroll();
 	m_zoom += zoom * -0.01f;
 }
+#endif
 
 Vector3 Arcball::npos_to_vector(const Vector2& npos)
 {

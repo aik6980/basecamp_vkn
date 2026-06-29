@@ -6,9 +6,9 @@ struct VS_OUTPUT {
 };
 
 static const float2 VPosition[] = {
-    float2(0.0, -0.5),
-    float2(0.5, 0.5),
-    float2(-0.5, 0.5),
+    float2(0.0, 0.5),
+    float2(0.5, -0.5),
+    float2(-0.5, -0.5),
 };
 
 static const float3 VColour[] = {
