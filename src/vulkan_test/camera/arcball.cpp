@@ -3,13 +3,13 @@
 #include "app.h"
 //#include "input/input_manager.h"
 
-void Arcball::init(const Vector3& pos, const Vector3& target)
+void Arcball::init(const glm::vec3& pos, const glm::vec3& target)
 {
 	m_target	 = target;
-	m_zoom		 = (target - pos).Length();
-	Matrix view	 = XMMatrixLookAtLH(pos, target, Vector3::Up); // CreateLookAtLH(pos, target, Vector3::Up);
-	auto&& world = view.Invert();
-	m_orient	 = Quaternion::CreateFromRotationMatrix(world);
+	m_zoom		 = glm::length(target - pos);
+	glm::mat4 view	 = glm::lookAtLH(pos, target, glm::vec3(0.0f, 1.0f, 0.0f)); // CreateLookAtLH(pos, target, Vector3::Up);
+	auto&& world = glm::inverse(view);
+	m_orient	 = glm::quat_cast(world);
 }
 
 #if 0
@@ -73,14 +73,14 @@ void Arcball::update()
 }
 #endif
 
-Vector3 Arcball::npos_to_vector(const Vector2& npos)
+glm::vec3 Arcball::npos_to_vector(const glm::vec2& npos)
 {
 	// adjust the arcball size inscreen space
-	Vector2 pos = npos * 1.0f / m_radius_screen_space;
+	glm::vec2 pos = npos * 1.0f / m_radius_screen_space;
 
 	// calculate surface position of unit sphere from 2d pos
 	float z	   = 0.0f;
-	float l_sq = pos.LengthSquared();
+	float l_sq = glm::dot(pos, pos);
 
 	if (l_sq > 1.0f) {
 		float scale = 1.0f / sqrtf(l_sq);
@@ -90,20 +90,22 @@ Vector3 Arcball::npos_to_vector(const Vector2& npos)
 		z = sqrtf(1.0f - l_sq);
 	}
 
-	return Vector3(pos.x, pos.y, z);
+	return glm::vec3(pos.x, pos.y, z);
 }
 
-Vector3 Arcball::pos()
+glm::vec3 Arcball::pos()
 {
-	Matrix world = Matrix::CreateFromQuaternion(m_orient);
-	return m_target + world.Forward() * m_zoom;
+	glm::mat4 world = glm::mat4_cast(m_orient);
+	auto forward	 = glm::vec3(world[2]);
+	return m_target + forward * m_zoom;
 }
 
-Matrix Arcball::view()
+glm::mat4 Arcball::view()
 {
-	Matrix world = Matrix::CreateFromQuaternion(m_orient);
-	auto&& pos	 = m_target + world.Forward() * m_zoom;
-	world.Translation(pos);
-	auto&& view = world.Invert();
+	glm::mat4 world = glm::mat4_cast(m_orient);
+	auto forward	 = glm::vec3(world[2]);
+	auto&& pos	 = m_target + forward * m_zoom;
+	world[3] = glm::vec4(pos, 1.0f);
+	auto&& view = glm::inverse(world);
 	return view;
 }

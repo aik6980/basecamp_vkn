@@ -18,6 +18,9 @@ set_target_properties(LIB_ASSIMP PROPERTIES
     IMPORTED_LOCATION_RELEASE "${CMAKE_SOURCE_DIR}/assimp/assimp-vc143-mt.lib"
 )
 
+# GLM is header-only, just add the include directory
+target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/ext/glm/include")
+
 #set(LIB_OIS ${CMAKE_SOURCE_DIR}/ext/ois/OIS_d.lib)
 #set(LIB_ASSIMP ${CMAKE_SOURCE_DIR}/ext/assimp/assimp-vc143-mt.lib)
 

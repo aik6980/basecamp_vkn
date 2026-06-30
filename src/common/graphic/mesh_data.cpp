@@ -19,7 +19,7 @@ void TextureData::reset(uint32_t w, uint32_t h)
     m_data.resize(w * h);
 }
 
-void TextureData::set_data(uint32_t x, uint32_t y, const XMCOLOR& val)
+void TextureData::set_data(uint32_t x, uint32_t y, const glm::u8vec4& val)
 {
     uint32_t id = y * m_width + x;
     m_data[id]  = val;

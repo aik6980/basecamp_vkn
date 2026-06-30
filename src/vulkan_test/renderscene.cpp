@@ -27,15 +27,20 @@ namespace VKN {
         });
 
         m_scene.m_transforms.push_back(
-            Render_transform{.m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(-0.55f, 0.5f, 0.0f)});
+            Render_transform{.m_obj_to_world = glm::translate(glm::mat4(1.0f), glm::vec3(-0.55f, 0.5f, 0.0f)) *
+                                               glm::scale(glm::mat4(1.0f), glm::vec3(0.35f))});
         m_scene.m_transforms.push_back(
-            Render_transform{.m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.00f, 0.5f, 0.0f)});
+            Render_transform{.m_obj_to_world = glm::translate(glm::mat4(1.0f), glm::vec3(0.00f, 0.5f, 0.0f)) *
+                                               glm::scale(glm::mat4(1.0f), glm::vec3(0.35f))});
         m_scene.m_transforms.push_back(
-            Render_transform{.m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.55f, 0.5f, 0.0f)});
-        m_scene.m_transforms.push_back(Render_transform{
-            .m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(-0.30f, -0.25f, 0.4f)});
+            Render_transform{.m_obj_to_world = glm::translate(glm::mat4(1.0f), glm::vec3(0.55f, 0.5f, 0.0f)) *
+                                               glm::scale(glm::mat4(1.0f), glm::vec3(0.35f))});
         m_scene.m_transforms.push_back(
-            Render_transform{.m_obj_to_world = Matrix::CreateScale(0.35f) * Matrix::CreateTranslation(0.30f, -0.25f, -0.4f)});
+            Render_transform{.m_obj_to_world = glm::translate(glm::mat4(1.0f), glm::vec3(-0.30f, -0.25f, 0.4f)) *
+                                               glm::scale(glm::mat4(1.0f), glm::vec3(0.35f))});
+        m_scene.m_transforms.push_back(
+            Render_transform{.m_obj_to_world = glm::translate(glm::mat4(1.0f), glm::vec3(0.30f, -0.25f, -0.4f)) *
+                                               glm::scale(glm::mat4(1.0f), glm::vec3(0.35f))});
 
         m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 0, .m_transform_id = 0});
         m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 1, .m_transform_id = 1});
@@ -80,7 +85,7 @@ namespace VKN {
                 d.m_normal_texture      = mat.m_normal_texture;
                 d.m_surface_texture     = mat.m_surface_texture;
                 d.m_flags               = mat.m_flags;
-                d.m_base_colour_factor  = XMFLOAT4(mat.m_base_colour_factor.x,
+                d.m_base_colour_factor  = glm::vec4(mat.m_base_colour_factor.x,
                     mat.m_base_colour_factor.y,
                     mat.m_base_colour_factor.z,
                     mat.m_base_colour_factor.w);
@@ -100,10 +105,8 @@ namespace VKN {
             gpu_transforms.reserve(m_scene.m_transforms.size());
             for (const auto& xform : m_scene.m_transforms) {
                 Scene_transform_desc d{};
-                XMStoreFloat4x4(
-                    &d.m_obj_to_world, XMLoadFloat4x4(reinterpret_cast<const XMFLOAT4X4*>(&xform.m_obj_to_world)));
-                XMStoreFloat4x4(
-                    &d.m_world_to_obj, XMLoadFloat4x4(reinterpret_cast<const XMFLOAT4X4*>(&xform.m_world_to_obj)));
+                d.m_obj_to_world = xform.m_obj_to_world;
+                d.m_world_to_obj = xform.m_world_to_obj;
                 gpu_transforms.push_back(d);
             }
             resource_manager.create_storage_buffer(
@@ -120,7 +123,7 @@ namespace VKN {
                     .m_num_indices     = mesh.m_index_count,
                     .m_offset_vertices = mesh.m_vertex_offset,
                     .m_offset_indices  = mesh.m_index_offset,
-                    .m_bounds_center   = XMFLOAT3(mesh.m_bounds_center.x, mesh.m_bounds_center.y, mesh.m_bounds_center.z),
+                    .m_bounds_center   = glm::vec3(mesh.m_bounds_center.x, mesh.m_bounds_center.y, mesh.m_bounds_center.z),
                     .m_bounds_radius   = mesh.m_bounds_radius,
                 });
             }

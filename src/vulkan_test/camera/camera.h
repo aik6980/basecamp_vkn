@@ -13,44 +13,36 @@ struct Camera {
     float           m_z_far;
     float           m_orthographic_height;
 
-    Matrix   m_view;
-    XMMATRIX m_projection;
-    XMVECTOR m_position;
+    glm::mat4 m_view;
+    glm::mat4 m_projection;
+    glm::vec3 m_position;
 
-    XMFLOAT3 position()
+    glm::vec3 position()
     {
-        XMFLOAT3 result;
-        XMStoreFloat3(&result, m_position);
-        return result;
+        return m_position;
     }
 
-    XMFLOAT4X4 view()
+    glm::mat4 view()
     {
-        XMFLOAT4X4 result;
-        XMStoreFloat4x4(&result, m_view);
-        return result;
+        return m_view;
     }
 
-    Matrix world()
+    glm::mat4 world()
     {
-        auto&& world = m_view.Invert();
+        auto&& world = glm::inverse(m_view);
         return world;
     }
 
-    XMFLOAT4X4 projection()
+    glm::mat4 projection()
     {
-        XMFLOAT4X4 result;
-        XMStoreFloat4x4(&result, m_projection);
-        return result;
+        return m_projection;
     }
 
-    XMFLOAT4X4 projection_to_world()
+    glm::mat4 projection_to_world()
     {
-        auto&& view_proj     = m_view * m_projection;
-        auto&& view_proj_inv = XMMatrixInverse(nullptr, view_proj);
+        auto&& view_proj     = m_projection * m_view;
+        auto&& view_proj_inv = glm::inverse(view_proj);
 
-        XMFLOAT4X4 result;
-        XMStoreFloat4x4(&result, view_proj_inv);
-        return result;
+        return view_proj_inv;
     }
 };

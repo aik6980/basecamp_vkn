@@ -20,15 +20,15 @@ namespace VKN {
         uint32_t m_normal_texture      = k_invalid_render_id;
         uint32_t m_surface_texture     = k_invalid_render_id; // roughness/metallic/ao packed later
 
-        Vector4 m_base_colour_factor = Vector4(1.f, 1.f, 1.f, 1.f);
+        glm::vec4 m_base_colour_factor = glm::vec4(1.f, 1.f, 1.f, 1.f);
         float m_metallic             = 0.0f;
         float m_roughness            = 1.0f;
         uint32_t m_flags             = 0;
     };
 
     struct Render_transform {
-        Matrix m_obj_to_world = Matrix::Identity;
-        Matrix m_world_to_obj = Matrix::Identity;
+        glm::mat4 m_obj_to_world = Mat4::Identity;
+        glm::mat4 m_world_to_obj = Mat4::Identity;
     };
 
     struct Render_mesh {
@@ -37,7 +37,7 @@ namespace VKN {
         uint32_t m_vertex_offset = 0;
         uint32_t m_index_offset  = 0;
 
-        Vector3 m_bounds_center = Vector3::Zero;
+        glm::vec3 m_bounds_center = Vec3::Zero;
         float m_bounds_radius   = 0.0f;
     };
 

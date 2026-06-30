@@ -46,20 +46,20 @@ Mesh_data Model_loader::process_mesh(aiMesh* mesh, const aiScene* scene)
 		auto&& colour = vertices.m_colour[i];
 		auto&& normal = vertices.m_normal[i];
 
-		pos = XMFLOAT3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
+		pos = glm::vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
 		// expand aabb
 		aabb.expand(pos);
 
 		if (mesh->mColors[0]) {
 			auto&& ai_colour = mesh->mColors[0][i]; // rgba float
 
-			colour = Color(ai_colour.r, ai_colour.g, ai_colour.b);
+			colour = glm::vec4(ai_colour.r, ai_colour.g, ai_colour.b, ai_colour.a);
 		}
 
 		if (mesh->mNormals) {
 			auto&& ai_normal = mesh->mNormals[i]; // rgba float
 
-			normal = XMFLOAT3(ai_normal.x, ai_normal.y, ai_normal.z);
+			normal = glm::vec3(ai_normal.x, ai_normal.y, ai_normal.z);
 		}
 
 		// if (mesh->mTextureCoords[0]) {

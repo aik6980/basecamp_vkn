@@ -2,12 +2,10 @@
 #define HLSL_SHARED_STRUCT__HLSL
 
 #ifdef COMPILE_CPP
-#include <DirectXMath.h>
-using namespace DirectX;
 
-using float4x4 = XMFLOAT4X4;
-using float4   = XMFLOAT4;
-using float3   = XMFLOAT3;
+using float4x4 = glm::mat4;
+using float4   = glm::vec4;
+using float3   = glm::vec3;
 using uint	   = uint32_t;
 
 #define Position_sematic

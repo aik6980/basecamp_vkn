@@ -4,16 +4,16 @@
 Mesh_data MeshDataGenerator::create_unit_quad()
 {
     Mesh_data mesh_data;
-    auto&&    vertex_array = mesh_data.m_vertices;
-    auto&&    index_array  = mesh_data.m_indices;
+    auto&& vertex_array = mesh_data.m_vertices;
+    auto&& index_array  = mesh_data.m_indices;
 
     vertex_array.reset_vertices(4);
     index_array.reset_indices(6);
 
-    vertex_array.m_position[0] = XMFLOAT3(-0.5f, 0.5f, 0.0f);
-    vertex_array.m_position[1] = XMFLOAT3(0.5f, 0.5f, 0.0f);
-    vertex_array.m_position[2] = XMFLOAT3(-0.5f, -0.5f, 0.0f);
-    vertex_array.m_position[3] = XMFLOAT3(0.5f, -0.5f, 0.0f);
+    vertex_array.m_position[0] = glm::vec3(-0.5f, 0.5f, 0.0f);
+    vertex_array.m_position[1] = glm::vec3(0.5f, 0.5f, 0.0f);
+    vertex_array.m_position[2] = glm::vec3(-0.5f, -0.5f, 0.0f);
+    vertex_array.m_position[3] = glm::vec3(0.5f, -0.5f, 0.0f);
 
     index_array.m_indices32[0] = 0;
     index_array.m_indices32[1] = 1;
@@ -29,61 +29,61 @@ Mesh_data MeshDataGenerator::create_unit_quad()
 Mesh_data MeshDataGenerator::create_unit_cube()
 {
     Mesh_data mesh_data;
-    auto&&    vertex_array = mesh_data.m_vertices;
-    auto&&    index_array  = mesh_data.m_indices;
+    auto&& vertex_array = mesh_data.m_vertices;
+    auto&& index_array  = mesh_data.m_indices;
 
     vertex_array.reset_vertices(4 * 6);
     index_array.reset_indices(6 * 6);
 
     // +/- x
     int offset                 = 0;
-    vertex_array.m_position[0] = XMFLOAT3(-0.5f, -0.5f, 0.5f);
-    vertex_array.m_position[1] = XMFLOAT3(-0.5f, 0.5f, 0.5f);
-    vertex_array.m_position[2] = XMFLOAT3(-0.5f, -0.5f, -0.5f);
-    vertex_array.m_position[3] = XMFLOAT3(-0.5f, 0.5f, -0.5f);
+    vertex_array.m_position[0] = glm::vec3(-0.5f, -0.5f, 0.5f);
+    vertex_array.m_position[1] = glm::vec3(-0.5f, 0.5f, 0.5f);
+    vertex_array.m_position[2] = glm::vec3(-0.5f, -0.5f, -0.5f);
+    vertex_array.m_position[3] = glm::vec3(-0.5f, 0.5f, -0.5f);
 
-    vertex_array.m_position[4] = XMFLOAT3(0.5f, -0.5f, 0.5f);
-    vertex_array.m_position[5] = XMFLOAT3(0.5f, 0.5f, 0.5f);
-    vertex_array.m_position[6] = XMFLOAT3(0.5f, -0.5f, -0.5f);
-    vertex_array.m_position[7] = XMFLOAT3(0.5f, 0.5f, -0.5f);
+    vertex_array.m_position[4] = glm::vec3(0.5f, -0.5f, 0.5f);
+    vertex_array.m_position[5] = glm::vec3(0.5f, 0.5f, 0.5f);
+    vertex_array.m_position[6] = glm::vec3(0.5f, -0.5f, -0.5f);
+    vertex_array.m_position[7] = glm::vec3(0.5f, 0.5f, -0.5f);
 
     for (int i = offset; i < offset + 4; ++i) {
-        vertex_array.m_colour[i]     = Color(1.0f, 0.1f, 0.1f, 1.0f);
-        vertex_array.m_colour[i + 4] = Color(0.5f, 0.1f, 0.1f, 1.0f);
+        vertex_array.m_colour[i]     = glm::vec4(1.0f, 0.1f, 0.1f, 1.0f);
+        vertex_array.m_colour[i + 4] = glm::vec4(0.5f, 0.1f, 0.1f, 1.0f);
     }
 
     // +/- y
     offset                              = 8;
-    vertex_array.m_position[offset + 0] = XMFLOAT3(-0.5f, 0.5f, 0.5f);
-    vertex_array.m_position[offset + 1] = XMFLOAT3(0.5f, 0.5f, 0.5f);
-    vertex_array.m_position[offset + 2] = XMFLOAT3(-0.5f, 0.5f, -0.5f);
-    vertex_array.m_position[offset + 3] = XMFLOAT3(0.5f, 0.5f, -0.5f);
+    vertex_array.m_position[offset + 0] = glm::vec3(-0.5f, 0.5f, 0.5f);
+    vertex_array.m_position[offset + 1] = glm::vec3(0.5f, 0.5f, 0.5f);
+    vertex_array.m_position[offset + 2] = glm::vec3(-0.5f, 0.5f, -0.5f);
+    vertex_array.m_position[offset + 3] = glm::vec3(0.5f, 0.5f, -0.5f);
 
-    vertex_array.m_position[offset + 4] = XMFLOAT3(-0.5f, -0.5f, 0.5f);
-    vertex_array.m_position[offset + 5] = XMFLOAT3(0.5f, -0.5f, 0.5f);
-    vertex_array.m_position[offset + 6] = XMFLOAT3(-0.5f, -0.5f, -0.5f);
-    vertex_array.m_position[offset + 7] = XMFLOAT3(0.5f, -0.5f, -0.5f);
+    vertex_array.m_position[offset + 4] = glm::vec3(-0.5f, -0.5f, 0.5f);
+    vertex_array.m_position[offset + 5] = glm::vec3(0.5f, -0.5f, 0.5f);
+    vertex_array.m_position[offset + 6] = glm::vec3(-0.5f, -0.5f, -0.5f);
+    vertex_array.m_position[offset + 7] = glm::vec3(0.5f, -0.5f, -0.5f);
 
     for (int i = offset; i < offset + 4; ++i) {
-        vertex_array.m_colour[i]     = Color(0.1f, 1.0f, 0.1f, 1.0f);
-        vertex_array.m_colour[i + 4] = Color(0.1f, 0.5f, 0.1f, 1.0f);
+        vertex_array.m_colour[i]     = glm::vec4(0.1f, 1.0f, 0.1f, 1.0f);
+        vertex_array.m_colour[i + 4] = glm::vec4(0.1f, 0.5f, 0.1f, 1.0f);
     }
 
     // +/-z
     offset                              = 16;
-    vertex_array.m_position[offset + 0] = XMFLOAT3(-0.5f, 0.5f, -0.5f);
-    vertex_array.m_position[offset + 1] = XMFLOAT3(0.5f, 0.5f, -0.5f);
-    vertex_array.m_position[offset + 2] = XMFLOAT3(-0.5f, -0.5f, -0.5f);
-    vertex_array.m_position[offset + 3] = XMFLOAT3(0.5f, -0.5f, -0.5f);
+    vertex_array.m_position[offset + 0] = glm::vec3(-0.5f, 0.5f, -0.5f);
+    vertex_array.m_position[offset + 1] = glm::vec3(0.5f, 0.5f, -0.5f);
+    vertex_array.m_position[offset + 2] = glm::vec3(-0.5f, -0.5f, -0.5f);
+    vertex_array.m_position[offset + 3] = glm::vec3(0.5f, -0.5f, -0.5f);
 
-    vertex_array.m_position[offset + 4] = XMFLOAT3(-0.5f, 0.5f, 0.5f);
-    vertex_array.m_position[offset + 5] = XMFLOAT3(0.5f, 0.5f, 0.5f);
-    vertex_array.m_position[offset + 6] = XMFLOAT3(-0.5f, -0.5f, 0.5f);
-    vertex_array.m_position[offset + 7] = XMFLOAT3(0.5f, -0.5f, 0.5f);
+    vertex_array.m_position[offset + 4] = glm::vec3(-0.5f, 0.5f, 0.5f);
+    vertex_array.m_position[offset + 5] = glm::vec3(0.5f, 0.5f, 0.5f);
+    vertex_array.m_position[offset + 6] = glm::vec3(-0.5f, -0.5f, 0.5f);
+    vertex_array.m_position[offset + 7] = glm::vec3(0.5f, -0.5f, 0.5f);
 
     for (int i = offset; i < offset + 4; ++i) {
-        vertex_array.m_colour[i]     = Color(0.1f, 0.1f, 1.0f, 1.0f);
-        vertex_array.m_colour[i + 4] = Color(0.1f, 0.1f, 0.5f, 1.0f);
+        vertex_array.m_colour[i]     = glm::vec4(0.1f, 0.1f, 1.0f, 1.0f);
+        vertex_array.m_colour[i + 4] = glm::vec4(0.1f, 0.1f, 0.5f, 1.0f);
     }
 
     // indices
@@ -166,10 +166,10 @@ Mesh_data MeshDataGenerator::create_grid(float width, float depth, uint32_t m, u
 
             uint32_t idx = i * n + j;
 
-            vertices.m_position[idx] = XMFLOAT3(x, 0.0f, z);
-            vertices.m_colour[idx]   = Color(0.6f, 0.6f, 0.6f, 1.0f);
-            // vertices[i * n + j].Normal   = XMFLOAT3(0.0f, 1.0f, 0.0f);
-            // vertices[i * n + j].TangentU = XMFLOAT3(1.0f, 0.0f, 0.0f);
+            vertices.m_position[idx] = glm::vec3(x, 0.0f, z);
+            vertices.m_colour[idx]   = glm::vec4(0.6f, 0.6f, 0.6f, 1.0f);
+            // vertices[i * n + j].Normal   = glm::vec3(0.0f, 1.0f, 0.0f);
+            // vertices[i * n + j].TangentU = glm::vec3(1.0f, 0.0f, 0.0f);
 
             // Stretch texture over grid.
             // meshData.Vertices[i * n + j].TexC.x = j * du;
@@ -212,9 +212,9 @@ vector<Fat_vertex> MeshDataGenerator::to_fat(const Mesh_vertex_array& vertex_arr
     vector<Fat_vertex> output;
     output.resize(vertex_array.m_position.size());
     for (uint32_t i = 0; i < vertex_array.m_position.size(); ++i) {
-        XMStoreFloat3(&output[i].m_position, XMLoadFloat3(&vertex_array.m_position[i]));
-        XMStoreFloat4(&output[i].m_colour, vertex_array.m_colour[i]);
-        XMStoreFloat3(&output[i].m_normal, XMLoadFloat3(&vertex_array.m_normal[i]));
+        output[i].m_position = vertex_array.m_position[i];
+        output[i].m_colour   = vertex_array.m_colour[i];
+        output[i].m_normal   = vertex_array.m_normal[i];
     }
 
     return output;
@@ -225,7 +225,7 @@ vector<RT_vertex> MeshDataGenerator::to_rt(const Mesh_vertex_array& vertex_array
     vector<RT_vertex> output;
     output.resize(vertex_array.m_position.size());
     for (uint32_t i = 0; i < vertex_array.m_position.size(); ++i) {
-        XMStoreFloat3(&output[i].m_position, XMLoadFloat3(&vertex_array.m_position[i]));
+        output[i].m_position = vertex_array.m_position[i];
     }
 
     return output;
@@ -236,7 +236,7 @@ vector<P1_vertex> MeshDataGenerator::to_p1(const Mesh_vertex_array& vertex_array
     vector<P1_vertex> output;
     output.resize(vertex_array.m_position.size());
     for (uint32_t i = 0; i < vertex_array.m_position.size(); ++i) {
-        XMStoreFloat4(&output[i].m_position, XMLoadFloat3(&vertex_array.m_position[i]));
+        output[i].m_position = glm::vec4(vertex_array.m_position[i], 1.0f);
     }
 
     return output;
@@ -247,8 +247,8 @@ vector<PC_vertex> MeshDataGenerator::to_p1c1(const Mesh_vertex_array& vertex_arr
     vector<PC_vertex> output;
     output.resize(vertex_array.m_position.size());
     for (uint32_t i = 0; i < vertex_array.m_position.size(); ++i) {
-        XMStoreFloat4(&output[i].position, XMLoadFloat3(&vertex_array.m_position[i]));
-        XMStoreFloat4(&output[i].colour, vertex_array.m_colour[i]);
+        output[i].position = glm::vec4(vertex_array.m_position[i], 1.0f);
+        output[i].colour   = vertex_array.m_colour[i];
     }
 
     return output;
@@ -256,7 +256,8 @@ vector<PC_vertex> MeshDataGenerator::to_p1c1(const Mesh_vertex_array& vertex_arr
 
 //////////////////////////////////////////////////////////////////////////
 
-TextureData TextureDataGenerator::create_checkerboard_texture(int texture_width, const XMCOLOR& colour1, const XMCOLOR& colour2)
+TextureData TextureDataGenerator::create_checkerboard_texture(
+    int texture_width, const glm::u8vec4& colour1, const glm::u8vec4& colour2)
 {
     TextureData texture_data;
     texture_data.reset(texture_width, texture_width);
@@ -266,7 +267,7 @@ TextureData TextureDataGenerator::create_checkerboard_texture(int texture_width,
             // Each cell is 8x8, value is 0 or 1 (black or white)
             value = (((row & 0x8) == 0) ^ ((col & 0x8) == 0)) * 1.0f;
 
-            XMCOLOR colour = (value == 0.0f) ? colour1 : colour2;
+            glm::u8vec4 colour = (value == 0.0f) ? colour1 : colour2;
             texture_data.set_data(row, col, colour);
         }
     }
@@ -277,11 +278,11 @@ TextureData TextureDataGenerator::create_checkerboard_texture(int texture_width,
 TextureData TextureDataGenerator::create_checkerboard_texture_default(int texture_width)
 {
     TextureData texture_data;
-    texture_data = create_checkerboard_texture(texture_width, XMCOLOR(1.0f, 1.0f, 1.0f, 1.0f), XMCOLOR(0.0f, 0.0f, 0.0f, 1.0f)); 
+    texture_data = create_checkerboard_texture(texture_width, glm::u8vec4(255, 255, 255, 255), glm::u8vec4(0, 0, 0, 255));
     return texture_data;
 }
 
-TextureData TextureDataGenerator::create_solid_texture(int texture_width, const XMCOLOR& colour)
+TextureData TextureDataGenerator::create_solid_texture(int texture_width, const glm::u8vec4& colour)
 {
     TextureData texture_data;
     texture_data.reset(texture_width, texture_width);

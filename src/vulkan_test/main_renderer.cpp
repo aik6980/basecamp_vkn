@@ -227,21 +227,21 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
                     const bool sampler_ok = technique_instance.bind_sampler_by_name("Linear_sam", "s_linear_wrap");
 
                     struct WorldDataCPU {
-                        Matrix m_world;
+                        glm::mat4 m_world;
                     } world_data = {transform.m_obj_to_world};
                     const bool world_ok =
                         technique_instance.bind_constant_by_name("World_cbv", &world_data, sizeof(world_data));
 
                     // Camera data
                     struct CameraDataCPU {
-                        Matrix m_view;
-                        Matrix m_projection;
+                        glm::mat4 m_view;
+                        glm::mat4 m_projection;
                     };
                     const auto extent  = gfx_device.backbuffer_colour_size();
                     const float aspect = extent.height > 0 ? (float)extent.width / (float)extent.height : 1.0f;
 
-                    CameraDataCPU camera_data{Matrix::CreateLookAt(Vector3(0.0f, 0.0f, -2.2f), Vector3::Zero, Vector3::Up),
-                        Matrix::CreatePerspectiveFieldOfView(DirectX::XM_PIDIV4, aspect, 0.1f, 100.0f)};
+                    CameraDataCPU camera_data{glm::lookAt(glm::vec3(0.0f, 0.0f, -2.2f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+                        glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f)};
 
                     const bool camera_ok =
                         technique_instance.bind_constant_by_name("Camera_cbv", &camera_data, sizeof(camera_data));

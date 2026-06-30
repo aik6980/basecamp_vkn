@@ -17,18 +17,17 @@
 // d3d12
 #include <wrl.h>
 
-// directx math
-#include <DirectXColors.h>
-#include <DirectXMath.h>
-#include <DirectXPackedVector.h>
+// important Vulkan-specific note: GLM defaults to OpenGL clip space (depth -1 to 1). Vulkan uses depth 0 to 1.
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/glm.hpp>
+#include <glm/ext/matrix_transform.hpp>    // for translate, rotate, scale
+#include <glm/ext/matrix_clip_space.hpp>   // for perspective, ortho
+#include <glm/ext/quaternion_common.hpp>   // for quaternion operations
+#include <glm/gtc/quaternion.hpp>
 
 using namespace std;
 
 using Microsoft::WRL::ComPtr;
-
-// directx math
-using namespace DirectX;
-using namespace DirectX::PackedVector;
 
 #include "debug/debug_output.h"
 #include "debug/debug_util.h"
@@ -36,8 +35,6 @@ using namespace DirectX::PackedVector;
 #include "helper/helper.h"
 #include "helper/math.h"
 #include "helper/string_pool.h"
-#include "math/directxtk/SimpleMath.h"
-using namespace DirectX::SimpleMath;
 
 #include "graphic/graphic.h"
 #include "math/aabb.h"

@@ -165,18 +165,18 @@ void App::create_scene()
 
     resource_manager.create_texture("t_checkerboard_redblue",
         TextureDataGenerator::create_checkerboard_texture(
-            texture_size, XMCOLOR(1.0f, 0.0f, 0.0f, 1.0f), XMCOLOR(0.0f, 0.0f, 1.0f, 1.0f)));
+            texture_size, glm::u8vec4(255, 0, 0, 255), glm::u8vec4(0, 0, 255, 255)));
     resource_manager.create_texture("t_checkerboard_redgreen",
         TextureDataGenerator::create_checkerboard_texture(
-            texture_size, XMCOLOR(1.0f, 0.0f, 0.0f, 1.0f), XMCOLOR(0.0f, 1.0f, 0.0f, 1.0f)));
+            texture_size, glm::u8vec4(255, 0, 0, 255), glm::u8vec4(0, 255, 0, 255)));
     resource_manager.create_texture("t_checkerboard_greenblue",
         TextureDataGenerator::create_checkerboard_texture(
-            texture_size, XMCOLOR(0.0f, 1.0f, 0.0f, 1.0f), XMCOLOR(0.0f, 0.0f, 1.0f, 1.0f)));
+            texture_size, glm::u8vec4(0, 255, 0, 255), glm::u8vec4(0, 0, 255, 255)));
 
-    auto&& texdata_solid = TextureDataGenerator::create_solid_texture(texture_size, XMCOLOR(1.0f, 0.0f, 1.0f, 1.0f));
+    auto&& texdata_solid = TextureDataGenerator::create_solid_texture(texture_size, glm::u8vec4(255, 0, 255, 255));
     resource_manager.create_texture("t_solid_magenta", texdata_solid);
 
-    auto solid_black = TextureDataGenerator::create_solid_texture(texture_size, XMCOLOR(0.0f, 0.0f, 0.0f, 1.0f));
+    auto solid_black = TextureDataGenerator::create_solid_texture(texture_size, glm::u8vec4(0, 0, 0, 255));
     resource_manager.create_texture("t_compute_output", solid_black, vk::ImageUsageFlagBits::eStorage);
 
     resource_manager.create_texture("t_raytracing_output", solid_black, vk::ImageUsageFlagBits::eStorage);

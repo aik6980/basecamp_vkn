@@ -4,9 +4,9 @@
 
 struct Mesh_vertex_array {
     // vertices
-    vector<Vector3> m_position;
-    vector<Vector3> m_normal;
-    vector<Color> m_colour;
+    vector<glm::vec3> m_position;
+    vector<glm::vec3> m_normal;
+    vector<glm::vec4> m_colour;
 
     void reset_vertices(UINT n);
 };
@@ -28,18 +28,18 @@ struct Mesh_data {
 struct TextureData {
     uint32_t m_width  = 0;
     uint32_t m_height = 0;
-    vector<XMCOLOR> m_data;
+    vector<glm::u8vec4> m_data;
 
     void reset(uint32_t w, uint32_t h);
-    void set_data(uint32_t x, uint32_t y, const XMCOLOR& val);
+    void set_data(uint32_t x, uint32_t y, const glm::u8vec4& val);
 
     int pixel_size_in_byte() const { return sizeof(decltype(*m_data.begin())); }
 };
 
 struct RT_vertex {
-    XMFLOAT3 m_position;
+    glm::vec3 m_position;
 };
 
 struct P1_vertex {
-    XMFLOAT4 m_position;
+    glm::vec4 m_position;
 };
