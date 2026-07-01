@@ -129,7 +129,8 @@ void App::create_scene()
 
     // for each render passes
     auto&& colour_format = gfx_device.backbuffer_colour_format();
-    resource_manager.create_depth_buffer(gfx_device.backbuffer_colour_size().width, gfx_device.backbuffer_colour_size().height);
+    resource_manager.create_depth_buffer(
+        gfx_device.backbuffer_colour_size().width, gfx_device.backbuffer_colour_size().height);
     auto&& depth_buffer = resource_manager.depth_buffer();
     auto&& depth_format = depth_buffer.m_format;
 
@@ -185,8 +186,21 @@ void App::create_scene()
     resource_manager.create_linear_wrap_sampler();
 
     // create mesh
-    // resource_manager->create_mesh();
+    auto cube = MeshDataGenerator::create_unit_cube();
 
+    // Upload positions as storage buffer (float3 array)
+    auto& positions = cube.m_vertices.m_position; // vector<glm::vec3>
+    resource_manager.create_storage_buffer("scene_vertices",
+        positions.data(),
+        positions.size() * sizeof(glm::vec3),
+        vk::BufferUsageFlagBits::eShaderDeviceAddress // for mesh shader access
+    );
+
+    // Upload indices as storage buffer (uint32 array)
+    auto& indices = cube.m_indices.m_indices32;
+    resource_manager.create_storage_buffer("scene_indices", indices.data(), indices.size() * sizeof(uint32_t));
+
+    // Upload mesh data to scene state
     g_scene_state.bootstrap_demo_scene();
     g_scene_state.validate_indices_verbose();
     assert(g_scene_state.last_validation_result().m_ok);

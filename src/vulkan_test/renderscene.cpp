@@ -42,6 +42,13 @@ namespace VKN {
             Render_transform{.m_obj_to_world = glm::translate(glm::mat4(1.0f), glm::vec3(0.30f, -0.25f, -0.4f)) *
                                                glm::scale(glm::mat4(1.0f), glm::vec3(0.35f))});
 
+        m_scene.m_meshes.push_back(Render_mesh{
+    .m_vertex_count  = 24,   // cube: 4 verts × 6 faces
+    .m_index_count   = 36,   // cube: 6 indices × 6 faces
+    .m_vertex_offset = 0,
+    .m_index_offset  = 0,
+});
+
         m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 0, .m_transform_id = 0});
         m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 1, .m_transform_id = 1});
         m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 2, .m_transform_id = 2});

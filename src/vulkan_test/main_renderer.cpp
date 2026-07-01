@@ -240,17 +240,34 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
                     const auto extent  = gfx_device.backbuffer_colour_size();
                     const float aspect = extent.height > 0 ? (float)extent.width / (float)extent.height : 1.0f;
 
-                    CameraDataCPU camera_data{glm::lookAt(glm::vec3(0.0f, 0.0f, -2.2f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+                    CameraDataCPU camera_data{
+                        glm::lookAt(glm::vec3(0.0f, 0.0f, -2.2f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
                         glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f)};
 
                     const bool camera_ok =
                         technique_instance.bind_constant_by_name("Camera_cbv", &camera_data, sizeof(camera_data));
+
+                    const auto& mesh = scene.m_meshes[instance.m_mesh_id]; // need m_mesh_id != invalid
+
+                    // Bind geometry buffers
+                    technique_instance.bind_storage_buffer_by_name("SceneVertices_srv", "scene_vertices");
+                    technique_instance.bind_storage_buffer_by_name("SceneIndices_srv", "scene_indices");
+
+                    // Bind per-draw mesh info
+                    struct MeshInfoCPU {
+                        uint32_t m_vertex_count;
+                        uint32_t m_index_count;
+                        uint32_t m_vertex_offset;
+                        uint32_t m_index_offset;
+                    } mesh_info = {mesh.m_vertex_count, mesh.m_index_count, mesh.m_vertex_offset, mesh.m_index_offset};
+                    technique_instance.bind_constant_by_name("MeshInfo_cbv", &mesh_info, sizeof(mesh_info));
 
                     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
                     const bool apply_ok = texture_ok && sampler_ok && world_ok && camera_ok && technique_instance.apply();
                     assert(apply_ok);
 
                     if (apply_ok) {
+                        // 1 meshlet per object (cube fits in 1 meshlet: 24v, 12t)
                         cmd.drawMeshTasksEXT(1, 1, 1);
                     }
                 }

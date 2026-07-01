@@ -27,8 +27,3 @@ MainScene3D renders correctly every frame.
 No Vulkan validation errors on depth/barriers.
 Verification modes still work after scene/depth changes.
 Resize, minimize, and restore remain stable.
-
-Planned Next: GLM Migration
-
-Goal
-Replace DirectX-dependent math usage with GLM-backed runtime math types.
