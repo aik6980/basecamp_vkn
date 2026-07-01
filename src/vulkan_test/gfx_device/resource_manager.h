@@ -26,12 +26,25 @@ namespace VKN {
         // test function
         void create_mesh();
 
-        // I think we can remove this function? since now we have scratch allocator for dynamic buffer creation, and we can
-        // directly use create_buffer for static buffer creation
-        Buffer create_constant_buffer(const void* src_data, size_t size);
-
         void create_storage_buffer(
             const std::string& name, const void* data, size_t size, vk::BufferUsageFlags additional_usage_flags = {});
+
+        template <typename T>
+        void create_storage_buffer_typed(const std::string& name, const std::vector<T>& data, vk::BufferUsageFlags additional_usage_flags = {})
+        {
+            // "Element type must be 4-byte aligned"
+            assert(sizeof(T) % 4 == 0);
+
+            size_t total_size = data.size() * sizeof(T);
+            create_storage_buffer(name, data.data(), total_size, additional_usage_flags);
+
+            OutputDebugStringA(DBG::Format("Created buffer '%s': %zu elements x %zu bytes = %zu total\n",
+                name.c_str(),
+                data.size(),
+                sizeof(T),
+                total_size)
+                    .c_str());
+        }
 
         Buffer m_vertex_buffer;
         Buffer m_index_buffer;

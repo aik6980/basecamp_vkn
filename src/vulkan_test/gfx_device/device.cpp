@@ -585,6 +585,10 @@ namespace VKN {
         // create physical device and logical device
         auto&& device_extensions = get_device_extensions();
 
+        auto&& scalar_block_layout_features = vk::PhysicalDeviceScalarBlockLayoutFeatures{
+            .scalarBlockLayout = VK_TRUE,
+        };
+
         auto&& required_dynamic_rendering = vk::PhysicalDeviceDynamicRenderingFeaturesKHR{
             .dynamicRendering = VK_TRUE,
         };
@@ -633,6 +637,7 @@ namespace VKN {
 
         auto&& ret_physical_device = selector.set_surface(static_cast<VkSurfaceKHR>(m_surface))
                                          .add_required_extensions(device_extensions)
+                                         .add_required_extension_features(scalar_block_layout_features)
                                          .add_required_extension_features(required_dynamic_rendering)
                                          .add_required_extension_features(required_synchronization2)
                                          .add_required_extension_features(required_descriptor_indexing)
@@ -1039,6 +1044,9 @@ namespace VKN {
     {
         return {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+            // For vk-use-scalar-layout to work without API validation errors
+            // This allowed structuredBuffer to be tightly packed similar to HLSL
+            VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME,
             // Dynamic rendering extension is required for using dynamic rendering without render pass and framebuffer
             VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
             VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,

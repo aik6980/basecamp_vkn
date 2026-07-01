@@ -190,15 +190,22 @@ void App::create_scene()
 
     // Upload positions as storage buffer (float3 array)
     auto& positions = cube.m_vertices.m_position; // vector<glm::vec3>
-    resource_manager.create_storage_buffer("scene_vertices",
-        positions.data(),
-        positions.size() * sizeof(glm::vec3),
-        vk::BufferUsageFlagBits::eShaderDeviceAddress // for mesh shader access
-    );
+
+    struct Vertex {
+        glm::vec3 position;
+    };
+
+    std::vector<Vertex> padded_vertices;
+    padded_vertices.reserve(positions.size());
+    for (const auto& pos : positions) {
+        padded_vertices.push_back(Vertex{.position = pos }); // or 0.0f if not needed
+    }
+
+    resource_manager.create_storage_buffer_typed("scene_vertices", positions);
 
     // Upload indices as storage buffer (uint32 array)
     auto& indices = cube.m_indices.m_indices32;
-    resource_manager.create_storage_buffer("scene_indices", indices.data(), indices.size() * sizeof(uint32_t));
+    resource_manager.create_storage_buffer_typed("scene_indices", indices);
 
     // Upload mesh data to scene state
     g_scene_state.bootstrap_demo_scene();

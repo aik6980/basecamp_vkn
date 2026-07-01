@@ -22,7 +22,7 @@ struct PS_INPUT {
 
 // Add new bindings
 StructuredBuffer<float3> SceneVertices_srv : register(t4);
-StructuredBuffer<uint>   SceneIndices_srv  : register(t5);
+StructuredBuffer<uint> SceneIndices_srv : register(t5);
 
 struct MeshInfo {
     uint m_vertex_count;
@@ -39,10 +39,9 @@ static const uint k_max_tris  = 64;
 // Mesh Shader
 [outputtopology("triangle")]
 [numthreads(64, 1, 1)] 
-void msmain(
-    uint gtid : SV_GroupThreadID, 
-    out vertices PS_INPUT verts[k_max_verts], 
-    out indices uint3 tris[k_max_tris])
+void msmain(uint gtid : SV_GroupThreadID
+    , out vertices PS_INPUT verts[k_max_verts]
+    , out indices uint3 tris[k_max_tris]) 
 {
     uint v_count = MeshInfo_cbv.m_vertex_count;
     uint t_count = MeshInfo_cbv.m_index_count / 3;
@@ -52,11 +51,11 @@ void msmain(
     SetMeshOutputCounts(v_count, t_count);
 
     if (gtid < v_count) {
-        float3 pos           = SceneVertices_srv[v_off + gtid];
-        float4 pos_ws        = mul(float4(pos, 1.0), World_cbv.m_world);
+        float3 position      = SceneVertices_srv[v_off + gtid];
+        float4 pos_ws        = mul(float4(position, 1.0), World_cbv.m_world);
         float4 pos_vs        = mul(pos_ws, Camera_cbv.m_view);
         verts[gtid].position = mul(pos_vs, Camera_cbv.m_projection);
-        verts[gtid].uv_coord = pos.xy + float2(0.5, 0.5);
+        verts[gtid].uv_coord = position.xy + 0.5; // use position.xy as uv_coord for testing
         verts[gtid].colour   = float3(1, 1, 1);
     }
 

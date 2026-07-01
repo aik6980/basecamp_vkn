@@ -145,8 +145,9 @@ add_custom_command(TARGET ${PROJECT_NAME}
 		VERBATIM
 		)
 		
-#set(SPIRV_OPTS "-spirv -fspv-reflect -fspv-target-env=\"vulkan1.1spirv1.4\"")
-set(SPIRV_OPTS "-spirv -fspv-target-env=\"vulkan1.1spirv1.4\"")
+# -fvk-use-scalar-layout indicates "scalarBlockLayout feature is enabled on the device".
+# this flag allow structure members to be laid out in memory without padding required
+set(SPIRV_OPTS "-spirv -fvk-use-scalar-layout -fspv-target-env=\"vulkan1.1spirv1.4\"")
 message(${SPIRV_OPTS})
 
 Dxc_compile("${RAS_VS_FILES}" ${DXC} "vs_6_0" "vsmain" "vs" ${SPIRV_OPTS} )

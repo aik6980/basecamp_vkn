@@ -127,36 +127,7 @@ namespace VKN {
         auto&& copy_region = vk::BufferCopy(alloc.m_offset, 0, size);
         command_buffer.copyBuffer(staging_buffer, buffer, copy_region);
 
-        return Buffer{.m_buffer = buffer, .m_allocation = buffer_alloc};
-    }
-
-    Buffer Resource_manager::create_constant_buffer(const void* src_data, size_t size)
-    {
-        auto&& vma_allocator = m_gfx_device.m_vma_allocator;
-
-        auto&& usage_flags = vk::BufferUsageFlagBits::eUniformBuffer;
-
-        auto&& create_info = vk::BufferCreateInfo{
-            .size        = size,
-            .usage       = vk::BufferUsageFlagBits::eTransferSrc | usage_flags,
-            .sharingMode = vk::SharingMode::eExclusive,
-        };
-
-        auto&& alloc_create_info = vma::AllocationCreateInfo();
-        alloc_create_info.setUsage(vma::MemoryUsage::eAuto);
-        alloc_create_info.setFlags(
-            vma::AllocationCreateFlagBits::eHostAccessSequentialWrite | vma::AllocationCreateFlagBits::eMapped);
-
-        vk::Buffer buffer;
-        vma::Allocation buffer_alloc;
-        vma::AllocationInfo buffer_alloc_info;
-        std::tie(buffer_alloc, buffer) = vma_allocator.createBuffer(create_info, alloc_create_info, buffer_alloc_info);
-
-        // copy src data
-        std::memcpy(buffer_alloc_info.pMappedData, src_data, size);
-
-        return Buffer{
-            .m_buffer = buffer, .m_allocation = buffer_alloc, .m_size = static_cast<size_t>(buffer_alloc_info.size)};
+        return Buffer{.m_buffer = buffer, .m_allocation = buffer_alloc, .m_size = size};
     }
 
     void Resource_manager::create_storage_buffer(
