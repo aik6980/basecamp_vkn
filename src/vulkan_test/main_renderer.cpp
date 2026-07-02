@@ -205,7 +205,9 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
             if (scene_state && scene_state->last_validation_result().m_ok) {
                 const auto& scene = scene_state->scene();
 
-                for (const auto& instance : scene.m_instances) {
+                for (uint32_t instance_index = 0; instance_index < static_cast<uint32_t>(scene.m_instances.size());
+                    ++instance_index) {
+                    const auto& instance  = scene.m_instances[instance_index];
                     const auto& material  = scene.m_materials[instance.m_material_id];
                     const auto& transform = scene.m_transforms[instance.m_transform_id];
 
@@ -266,9 +268,16 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
                     const bool apply_ok = texture_ok && sampler_ok && world_ok && camera_ok && technique_instance.apply();
                     assert(apply_ok);
 
-                    if (apply_ok) {
-                        // 1 meshlet per object (cube fits in 1 meshlet: 24v, 12t)
-                        cmd.drawMeshTasksEXT(1, 1, 1);
+                    auto&& indirect_command_buffer =
+                        Gfx_main::resource_manager().get_storage_buffer("indirect_command_buffer");
+
+                    if (apply_ok && indirect_command_buffer.m_buffer != VK_NULL_HANDLE) {
+
+                        const VkDeviceSize offset =
+                            static_cast<VkDeviceSize>(instance_index) * sizeof(VkDrawMeshTasksIndirectCommandEXT);
+
+                        cmd.drawMeshTasksIndirectEXT(
+                            indirect_command_buffer.m_buffer, offset, 1, sizeof(VkDrawMeshTasksIndirectCommandEXT));
                     }
                 }
             }

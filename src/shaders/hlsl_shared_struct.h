@@ -73,4 +73,10 @@ struct Scene_instance_desc {
     uint m_pad1;
 };
 
+struct Indirect_mesh_task_command {
+    uint32_t m_group_count_x;
+    uint32_t m_group_count_y;
+    uint32_t m_group_count_z;
+};
+
 #endif

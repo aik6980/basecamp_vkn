@@ -198,7 +198,7 @@ void App::create_scene()
     std::vector<Vertex> padded_vertices;
     padded_vertices.reserve(positions.size());
     for (const auto& pos : positions) {
-        padded_vertices.push_back(Vertex{.position = pos }); // or 0.0f if not needed
+        padded_vertices.push_back(Vertex{.position = pos}); // or 0.0f if not needed
     }
 
     resource_manager.create_storage_buffer_typed("scene_vertices", positions);
@@ -206,6 +206,20 @@ void App::create_scene()
     // Upload indices as storage buffer (uint32 array)
     auto& indices = cube.m_indices.m_indices32;
     resource_manager.create_storage_buffer_typed("scene_indices", indices);
+
+    // Create indirect command buffer (16 commands for 16 instances)
+    std::vector<VkDrawMeshTasksIndirectCommandEXT> indirect_commands(16);
+    for (uint32_t i = 0; i < 16; ++i) {
+        indirect_commands[i] = VkDrawMeshTasksIndirectCommandEXT{
+            .groupCountX = 1,
+            .groupCountY = 1,
+            .groupCountZ = 1
+        };
+    }
+    resource_manager.create_storage_buffer_typed("indirect_command_buffer",
+        indirect_commands,
+        vk::BufferUsageFlagBits::eIndirectBuffer // Important!
+    );
 
     // Upload mesh data to scene state
     g_scene_state.bootstrap_demo_scene();

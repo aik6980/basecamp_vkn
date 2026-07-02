@@ -26,34 +26,23 @@ namespace VKN {
             .m_base_colour_texture = 2,
         });
 
-        m_scene.m_transforms.push_back(
-            Render_transform{.m_obj_to_world = glm::translate(glm::mat4(1.0f), glm::vec3(-0.55f, 0.5f, 0.0f)) *
-                                               glm::scale(glm::mat4(1.0f), glm::vec3(0.35f))});
-        m_scene.m_transforms.push_back(
-            Render_transform{.m_obj_to_world = glm::translate(glm::mat4(1.0f), glm::vec3(0.00f, 0.5f, 0.0f)) *
-                                               glm::scale(glm::mat4(1.0f), glm::vec3(0.35f))});
-        m_scene.m_transforms.push_back(
-            Render_transform{.m_obj_to_world = glm::translate(glm::mat4(1.0f), glm::vec3(0.55f, 0.5f, 0.0f)) *
-                                               glm::scale(glm::mat4(1.0f), glm::vec3(0.35f))});
-        m_scene.m_transforms.push_back(
-            Render_transform{.m_obj_to_world = glm::translate(glm::mat4(1.0f), glm::vec3(-0.30f, -0.25f, 0.4f)) *
-                                               glm::scale(glm::mat4(1.0f), glm::vec3(0.35f))});
-        m_scene.m_transforms.push_back(
-            Render_transform{.m_obj_to_world = glm::translate(glm::mat4(1.0f), glm::vec3(0.30f, -0.25f, -0.4f)) *
-                                               glm::scale(glm::mat4(1.0f), glm::vec3(0.35f))});
-
         m_scene.m_meshes.push_back(Render_mesh{
-    .m_vertex_count  = 24,   // cube: 4 verts × 6 faces
-    .m_index_count   = 36,   // cube: 6 indices × 6 faces
-    .m_vertex_offset = 0,
-    .m_index_offset  = 0,
-});
+            .m_vertex_count  = 24, // cube: 4 verts × 6 faces
+            .m_index_count   = 36, // cube: 6 indices × 6 faces
+            .m_vertex_offset = 0,
+            .m_index_offset  = 0,
+        });
 
-        m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 0, .m_transform_id = 0});
-        m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 1, .m_transform_id = 1});
-        m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 2, .m_transform_id = 2});
-        m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 1, .m_transform_id = 3});
-        m_scene.m_instances.push_back(Render_instance{.m_mesh_id = 0, .m_material_id = 0, .m_transform_id = 4});
+        constexpr int k_grid = 4; // 4x4 = 16 cubes
+        for (int row = 0; row < k_grid; ++row) {
+            for (int col = 0; col < k_grid; ++col) {
+                glm::vec3 pos = glm::vec3(col * 1.5f, 0.0f, row * 1.5f);
+                m_scene.m_transforms.push_back(Render_transform{.m_obj_to_world = glm::translate(glm::mat4(1.0f), pos)});
+                uint32_t mat_id = (row + col) % 3; // cycle materials
+                m_scene.m_instances.push_back(Render_instance{
+                    .m_mesh_id = 0, .m_material_id = mat_id, .m_transform_id = (uint32_t)m_scene.m_transforms.size() - 1});
+            }
+        }
 
         m_need_validation = true;
     }
