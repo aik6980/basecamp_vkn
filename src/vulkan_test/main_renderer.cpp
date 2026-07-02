@@ -88,10 +88,74 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
 {
     auto&& gfx_device     = Gfx_main::gfx_device();
     auto&& shader_manager = Gfx_main::shader_manager();
+    auto scene_state      = m_scene_state;
+
+    const uint32_t res_scene_instances = frame_graph.get_or_create_resource_id("scene_instances");
+    const uint32_t res_indirect_cmds   = frame_graph.get_or_create_resource_id("indirect_command_buffer");
+
+    // Add culling/build-indirect compute pass.
+    PassNode culling_pass;
+    culling_pass.name = "main_scene_culling_pass";
+    culling_pass.reads.push_back(ResourceUse{
+        .resource_id = res_scene_instances,
+        .is_write    = false,
+        .layout      = vk::ImageLayout::eUndefined,
+        .access      = vk::AccessFlagBits2::eShaderStorageRead,
+        .stage       = vk::PipelineStageFlagBits2::eComputeShader,
+        .is_image    = false,
+    });
+    culling_pass.writes.push_back(ResourceUse{
+        .resource_id = res_indirect_cmds,
+        .is_write    = true,
+        .layout      = vk::ImageLayout::eUndefined,
+        .access      = vk::AccessFlagBits2::eShaderStorageWrite,
+        .stage       = vk::PipelineStageFlagBits2::eComputeShader,
+        .is_image    = false,
+    });
+    culling_pass.execute = [scene_state](vk::CommandBuffer& cmd) {
+        if (!scene_state || !scene_state->last_validation_result().m_ok) {
+            return;
+        }
+
+        auto&& shader_manager = Gfx_main::shader_manager();
+        auto&& technique      = shader_manager.get_technique("scene/scene_culling").lock();
+        if (!technique) {
+            return;
+        }
+
+        const uint32_t instance_count = static_cast<uint32_t>(scene_state->scene().m_instances.size());
+        if (instance_count == 0) {
+            return;
+        }
+
+        auto&& technique_instance = VKN::Technique_instance(*technique);
+        //const bool instances_ok   = technique_instance.bind_storage_buffer_by_name("scene_instances", "scene_instances");
+        const bool indirect_ok    = technique_instance.bind_storage_buffer_by_name("indirect_commands", "indirect_command_buffer");
+        //const bool count_ok = technique_instance.bind_constant_by_name("instance_count_cbv", &instance_count, sizeof(instance_count));
+
+        cmd.bindPipeline(technique->m_bind_point, technique->m_pipeline);
+        const bool apply_ok = indirect_ok && technique_instance.apply();
+        assert(apply_ok);
+        if (!apply_ok) {
+            return;
+        }
+
+        const uint32_t group_count_x = (instance_count + 63u) / 64u;
+        cmd.dispatch(group_count_x, 1, 1);
+    };
+    frame_graph.add_pass(culling_pass);
 
     // Add raster pass:
     PassNode raster_pass;
     raster_pass.name = "main_scene_raster_pass";
+    raster_pass.reads.push_back(ResourceUse{
+        .resource_id = res_indirect_cmds,
+        .is_write    = false,
+        .layout      = vk::ImageLayout::eUndefined,
+        .access      = vk::AccessFlagBits2::eIndirectCommandRead,
+        .stage       = vk::PipelineStageFlagBits2::eDrawIndirect,
+        .is_image    = false,
+    });
 
     auto&& render_target_image       = gfx_device.offscreen_colour_image();
     const uint32_t res_render_target = frame_graph.get_or_create_resource_id("render_target");
@@ -130,8 +194,6 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
                 .layerCount     = 1,
             },
     });
-
-    auto scene_state = m_scene_state;
 
     raster_pass.execute = [scene_state](vk::CommandBuffer& cmd) {
         auto&& gfx_device     = Gfx_main::gfx_device();

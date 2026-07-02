@@ -155,6 +155,7 @@ void App::create_scene()
 
     // create compute techniques
     shader_manager.register_compute_technique("test/uav_resource");
+    shader_manager.register_compute_technique("scene/scene_culling");
 
     // create raytracing techniques
     shader_manager.register_raytracing_technique("test/ray_tracing_triangle");
