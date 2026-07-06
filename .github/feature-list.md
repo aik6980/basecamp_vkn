@@ -47,6 +47,26 @@ See current-task.md for active implementation scope.
 - Compute culling pass groundwork.
 - Move mesh/raytrace workflows toward indirect dispatch patterns.
 
+### Future Goal: Visibility Buffer Path (GPU-Driven)
+
+- Add a visibility buffer render path for MainScene3D to decouple geometry visibility from material shading.
+- First pass writes per-pixel IDs (instance/mesh/material/primitive) into a visibility target.
+- Second pass performs material shading by reading visibility data and scene buffers.
+- Keep scene data GPU-resident and compatible with bindless texture indexing.
+- Integrate into framegraph with explicit resource edges and barriers:
+  - raster visibility write -> raster/compute shading read
+  - compute culling write -> graphics indirect read + shader read
+- Preserve current stability requirements:
+  - no new Vulkan validation errors
+  - resize/minimize/restore remains stable
+  - verification compute/raytrace modes remain functional
+
+Definition of Done (Visibility Buffer Stage):
+- MainScene3D supports visibility-buffer-driven shading path.
+- Framegraph dependencies for visibility target and scene buffers are explicit and validated.
+- Existing single-draw GPU-driven submission remains functional.
+- Validation remains clean in normal render loop.
+
 ### Phase 4: Scene-Driven Raytracing
 - Connect BLAS input to scene geometry buffers.
 - Move from hardcoded triangle to scene-driven geometry.

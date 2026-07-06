@@ -146,38 +146,78 @@ void Frame_graph::execute(vk::CommandBuffer& cmd)
             // Default-insert gives eUndefined/eNone/eTopOfPipe — valid as barrier src.
             auto& cached = m_resource_state_cache[use.resource_id];
 
-            // Resource IDs can point to different images across frames (swapchain rotation/resize).
-            // If handle changes, reset cached state so a fresh transition is emitted.
+            // Reset cached state if the concrete image handle changes across frames.
             if (use.is_image && cached.is_image && cached.image && cached.image != use.image) {
-                cached.layout      = vk::ImageLayout::eUndefined;
-                cached.access      = vk::AccessFlagBits2::eNone;
-                cached.stage       = vk::PipelineStageFlagBits2::eTopOfPipe;
-                cached.image       = use.image;
-                cached.image_range = use.image_range;
-                cached.is_image    = true;
+                cached.layout        = vk::ImageLayout::eUndefined;
+                cached.access        = vk::AccessFlagBits2::eNone;
+                cached.stage         = vk::PipelineStageFlagBits2::eTopOfPipe;
+                cached.image         = use.image;
+                cached.image_range   = use.image_range;
+                cached.is_image      = true;
+                cached.is_buffer     = false;
+                cached.buffer        = nullptr;
+                cached.buffer_offset = 0;
+                cached.buffer_size   = VK_WHOLE_SIZE;
+            }
+
+            // Reset cached state if the concrete buffer handle changes across frames.
+            if (use.is_buffer && cached.is_buffer && cached.buffer && cached.buffer != use.buffer) {
+                cached.layout        = vk::ImageLayout::eUndefined;
+                cached.access        = vk::AccessFlagBits2::eNone;
+                cached.stage         = vk::PipelineStageFlagBits2::eTopOfPipe;
+                cached.is_image      = false;
+                cached.image         = nullptr;
+                cached.image_range   = {};
+                cached.is_buffer     = true;
+                cached.buffer        = use.buffer;
+                cached.buffer_offset = use.buffer_offset;
+                cached.buffer_size   = use.buffer_size;
             }
 
             const bool layout_changed = cached.layout != use.layout;
             const bool access_changed = cached.access != use.access;
+            const bool stage_changed  = cached.stage != use.stage;
 
-            if ((layout_changed || access_changed) && use.is_image && use.image) {
-                vk::ImageMemoryBarrier2 image_barrier{
-                    .srcStageMask        = cached.stage,
-                    .srcAccessMask       = cached.access,
-                    .dstStageMask        = use.stage,
-                    .dstAccessMask       = use.access,
-                    .oldLayout           = cached.layout,
-                    .newLayout           = use.layout,
-                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .image               = use.image,
-                    .subresourceRange    = use.image_range,
-                };
-                vk::DependencyInfo dep{
-                    .imageMemoryBarrierCount = 1,
-                    .pImageMemoryBarriers    = &image_barrier,
-                };
-                cmd.pipelineBarrier2(dep);
+            if (layout_changed || access_changed || stage_changed) {
+                if (use.is_image && use.image) {
+                    vk::ImageMemoryBarrier2 image_barrier{
+                        .srcStageMask        = cached.stage,
+                        .srcAccessMask       = cached.access,
+                        .dstStageMask        = use.stage,
+                        .dstAccessMask       = use.access,
+                        .oldLayout           = cached.layout,
+                        .newLayout           = use.layout,
+                        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                        .image               = use.image,
+                        .subresourceRange    = use.image_range,
+                    };
+
+                    vk::DependencyInfo dep{
+                        .imageMemoryBarrierCount = 1,
+                        .pImageMemoryBarriers    = &image_barrier,
+                    };
+                    cmd.pipelineBarrier2(dep);
+                }
+                else if (use.is_buffer && use.buffer) {
+                    vk::BufferMemoryBarrier2 buffer_barrier{
+                        .srcStageMask        = cached.stage,
+                        .srcAccessMask       = cached.access,
+                        .dstStageMask        = use.stage,
+                        .dstAccessMask       = use.access,
+                        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                        .buffer              = use.buffer,
+                        .offset              = use.buffer_offset,
+                        .size                = use.buffer_size,
+                    };
+
+                    vk::DependencyInfo dep{
+                        .bufferMemoryBarrierCount = 1,
+                        .pBufferMemoryBarriers    = &buffer_barrier,
+                    };
+                    cmd.pipelineBarrier2(dep);
+                }
             }
 
             // Update cache to reflect what this pass leaves the resource in.
@@ -240,7 +280,8 @@ std::string Frame_graph::build_debug_dot() const
                         continue;
                     has_hazard = true;
                     std::ostringstream l;
-                    l << "res" << resource_label(ua.resource_id) << " " << fg_use_kind(ua.is_write) << "->" << fg_use_kind(ub.is_write);
+                    l << "res" << resource_label(ua.resource_id) << " " << fg_use_kind(ua.is_write) << "->"
+                      << fg_use_kind(ub.is_write);
                     labels.push_back(l.str());
                 }
             }
@@ -292,7 +333,8 @@ std::string Frame_graph::build_debug_mermaid() const
                         continue;
                     has_hazard = true;
                     std::ostringstream l;
-                    l << "res" << resource_label(ua.resource_id) << " " << fg_use_kind(ua.is_write) << "->" << fg_use_kind(ub.is_write);
+                    l << "res" << resource_label(ua.resource_id) << " " << fg_use_kind(ua.is_write) << "->"
+                      << fg_use_kind(ub.is_write);
                     labels.push_back(l.str());
                 }
             }

@@ -86,75 +86,116 @@ void Main_renderer::draw()
 
 void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
 {
-    auto&& gfx_device     = Gfx_main::gfx_device();
-    auto&& shader_manager = Gfx_main::shader_manager();
-    auto scene_state      = m_scene_state;
+    auto&& gfx_device = Gfx_main::gfx_device();
+    auto scene_state  = m_scene_state;
+
+    auto&& resource_manager      = Gfx_main::resource_manager();
+    auto&& indirect_cmd_buffer   = resource_manager.get_storage_buffer("indirect_command_buffer");
+    auto&& indirect_count_buffer = resource_manager.get_storage_buffer("indirect_count_buffer");
+    auto&& scene_instances_buf   = resource_manager.get_storage_buffer("scene_instances");
 
     const uint32_t res_scene_instances = frame_graph.get_or_create_resource_id("scene_instances");
     const uint32_t res_indirect_cmds   = frame_graph.get_or_create_resource_id("indirect_command_buffer");
+    const uint32_t res_indirect_count  = frame_graph.get_or_create_resource_id("indirect_count_buffer");
+
+    // 1) Reset indirect count every frame
+    PassNode reset_count_pass;
+    reset_count_pass.name = "main_scene_reset_indirect_count";
+    reset_count_pass.writes.push_back(ResourceUse{
+        .resource_id = res_indirect_count,
+        .is_write    = true,
+        .layout      = vk::ImageLayout::eUndefined,
+        .access      = vk::AccessFlagBits2::eTransferWrite,
+        .stage       = vk::PipelineStageFlagBits2::eTransfer,
+        .is_buffer   = true,
+        .buffer      = indirect_count_buffer.m_buffer,
+    });
+    reset_count_pass.execute = [indirect_count_buffer](vk::CommandBuffer& cmd) {
+        cmd.fillBuffer(indirect_count_buffer.m_buffer, 0, sizeof(uint32_t), 0u);
+    };
+    frame_graph.add_pass(reset_count_pass);
 
     // Add culling/build-indirect compute pass.
     PassNode culling_pass;
     culling_pass.name = "main_scene_culling_pass";
+
     culling_pass.reads.push_back(ResourceUse{
         .resource_id = res_scene_instances,
         .is_write    = false,
         .layout      = vk::ImageLayout::eUndefined,
         .access      = vk::AccessFlagBits2::eShaderStorageRead,
         .stage       = vk::PipelineStageFlagBits2::eComputeShader,
-        .is_image    = false,
+        .is_buffer   = true,
+        .buffer      = scene_instances_buf.m_buffer,
     });
+
     culling_pass.writes.push_back(ResourceUse{
         .resource_id = res_indirect_cmds,
         .is_write    = true,
         .layout      = vk::ImageLayout::eUndefined,
         .access      = vk::AccessFlagBits2::eShaderStorageWrite,
         .stage       = vk::PipelineStageFlagBits2::eComputeShader,
-        .is_image    = false,
+        .is_buffer   = true,
+        .buffer      = indirect_cmd_buffer.m_buffer,
     });
-    culling_pass.execute = [scene_state](vk::CommandBuffer& cmd) {
-        if (!scene_state || !scene_state->last_validation_result().m_ok) {
-            return;
-        }
 
-        auto&& shader_manager = Gfx_main::shader_manager();
-        auto&& technique      = shader_manager.get_technique("scene/scene_culling").lock();
-        if (!technique) {
+    culling_pass.writes.push_back(ResourceUse{
+        .resource_id = res_indirect_count,
+        .is_write    = true,
+        .layout      = vk::ImageLayout::eUndefined,
+        .access      = vk::AccessFlagBits2::eShaderStorageWrite,
+        .stage       = vk::PipelineStageFlagBits2::eComputeShader,
+        .is_buffer   = true,
+        .buffer      = indirect_count_buffer.m_buffer,
+    });
+
+    culling_pass.execute = [scene_state](vk::CommandBuffer& cmd) {
+        if (!scene_state || !scene_state->last_validation_result().m_ok)
             return;
-        }
+
+        auto&& technique = Gfx_main::shader_manager().get_technique("scene/scene_culling").lock();
+        if (!technique)
+            return;
 
         const uint32_t instance_count = static_cast<uint32_t>(scene_state->scene().m_instances.size());
-        if (instance_count == 0) {
+        if (instance_count == 0)
             return;
-        }
 
-        auto&& technique_instance = VKN::Technique_instance(*technique);
-        //const bool instances_ok   = technique_instance.bind_storage_buffer_by_name("scene_instances", "scene_instances");
-        const bool indirect_ok    = technique_instance.bind_storage_buffer_by_name("indirect_commands", "indirect_command_buffer");
-        //const bool count_ok = technique_instance.bind_constant_by_name("instance_count_cbv", &instance_count, sizeof(instance_count));
+        auto inst      = VKN::Technique_instance(*technique);
+        const bool ok0 = inst.bind_storage_buffer_by_name("scene_instance_srv", "scene_instances");
+        const bool ok1 = inst.bind_storage_buffer_by_name("indirect_command_uav", "indirect_command_buffer");
+        const bool ok2 = inst.bind_storage_buffer_by_name("instance_count_uav", "indirect_count_buffer");
 
         cmd.bindPipeline(technique->m_bind_point, technique->m_pipeline);
-        const bool apply_ok = indirect_ok && technique_instance.apply();
-        assert(apply_ok);
-        if (!apply_ok) {
+        const bool apply_ok = ok0 && ok1 && ok2 && inst.apply();
+        if (!apply_ok)
             return;
-        }
 
-        const uint32_t group_count_x = (instance_count + 63u) / 64u;
-        cmd.dispatch(group_count_x, 1, 1);
+        cmd.dispatch((instance_count + 63u) / 64u, 1, 1);
     };
     frame_graph.add_pass(culling_pass);
 
     // Add raster pass:
     PassNode raster_pass;
     raster_pass.name = "main_scene_raster_pass";
+
     raster_pass.reads.push_back(ResourceUse{
-        .resource_id = res_indirect_cmds,
+        .resource_id   = res_indirect_cmds,
+        .is_write      = false,
+        .layout        = vk::ImageLayout::eUndefined,
+        .access        = vk::AccessFlagBits2::eIndirectCommandRead,
+        .stage         = vk::PipelineStageFlagBits2::eDrawIndirect,
+        .is_buffer     = true,
+        .buffer        = indirect_cmd_buffer.m_buffer,
+    });
+    raster_pass.reads.push_back(ResourceUse{
+        .resource_id = res_indirect_count,
         .is_write    = false,
         .layout      = vk::ImageLayout::eUndefined,
         .access      = vk::AccessFlagBits2::eIndirectCommandRead,
         .stage       = vk::PipelineStageFlagBits2::eDrawIndirect,
-        .is_image    = false,
+        .is_buffer   = true,
+        .buffer      = indirect_count_buffer.m_buffer,
     });
 
     auto&& render_target_image       = gfx_device.offscreen_colour_image();
@@ -267,79 +308,63 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
             if (scene_state && scene_state->last_validation_result().m_ok) {
                 const auto& scene = scene_state->scene();
 
-                for (uint32_t instance_index = 0; instance_index < static_cast<uint32_t>(scene.m_instances.size());
-                    ++instance_index) {
-                    const auto& instance  = scene.m_instances[instance_index];
-                    const auto& material  = scene.m_materials[instance.m_material_id];
-                    const auto& transform = scene.m_transforms[instance.m_transform_id];
-
-                    auto&& technique = shader_manager.get_technique(material.m_technique_name).lock();
-                    if (!technique) {
-                        continue;
-                    }
-
+                auto&& technique = shader_manager.get_technique("scene/mesh_scene_unlit").lock();
+                if (technique) {
                     auto&& technique_instance = VKN::Technique_instance(*technique);
 
                     bool texture_ok = false;
-                    if (material.m_base_colour_texture != VKN::k_invalid_render_id &&
-                        material.m_base_colour_texture < scene.m_textures.size()) {
-                        const auto& texture_ref = scene.m_textures[material.m_base_colour_texture];
-                        texture_ok =
-                            technique_instance.bind_sampled_image_by_name("ColourTex_srv", texture_ref.m_resource_name);
+                    if (!scene.m_materials.empty()) {
+                        const auto& mat0 = scene.m_materials[0];
+                        if (mat0.m_base_colour_texture != VKN::k_invalid_render_id &&
+                            mat0.m_base_colour_texture < scene.m_textures.size()) {
+                            texture_ok = technique_instance.bind_sampled_image_by_name(
+                                "ColourTex_srv", scene.m_textures[mat0.m_base_colour_texture].m_resource_name);
+                        }
                     }
 
                     const bool sampler_ok = technique_instance.bind_sampler_by_name("Linear_sam", "s_linear_wrap");
 
-                    struct WorldDataCPU {
-                        glm::mat4 m_world;
-                    } world_data = {transform.m_obj_to_world};
-                    const bool world_ok =
-                        technique_instance.bind_constant_by_name("World_cbv", &world_data, sizeof(world_data));
-
-                    // Camera data
                     struct CameraDataCPU {
                         glm::mat4 m_view;
                         glm::mat4 m_projection;
                     };
                     const auto extent  = gfx_device.backbuffer_colour_size();
                     const float aspect = extent.height > 0 ? (float)extent.width / (float)extent.height : 1.0f;
-
                     CameraDataCPU camera_data{
                         glm::lookAt(glm::vec3(0.0f, 0.0f, -2.2f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
                         glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f)};
-
                     const bool camera_ok =
                         technique_instance.bind_constant_by_name("Camera_cbv", &camera_data, sizeof(camera_data));
 
-                    const auto& mesh = scene.m_meshes[instance.m_mesh_id]; // need m_mesh_id != invalid
-
-                    // Bind geometry buffers
-                    technique_instance.bind_storage_buffer_by_name("SceneVertices_srv", "scene_vertices");
-                    technique_instance.bind_storage_buffer_by_name("SceneIndices_srv", "scene_indices");
-
-                    // Bind per-draw mesh info
-                    struct MeshInfoCPU {
-                        uint32_t m_vertex_count;
-                        uint32_t m_index_count;
-                        uint32_t m_vertex_offset;
-                        uint32_t m_index_offset;
-                    } mesh_info = {mesh.m_vertex_count, mesh.m_index_count, mesh.m_vertex_offset, mesh.m_index_offset};
-                    technique_instance.bind_constant_by_name("MeshInfo_cbv", &mesh_info, sizeof(mesh_info));
+                    const bool sv_ok0 =
+                        technique_instance.bind_storage_buffer_by_name("SceneVertices_srv", "scene_vertices");
+                    const bool sv_ok1 = technique_instance.bind_storage_buffer_by_name("SceneIndices_srv", "scene_indices");
+                    const bool sv_ok2 =
+                        technique_instance.bind_storage_buffer_by_name("SceneInstances_srv", "scene_instances");
+                    const bool sv_ok3 = technique_instance.bind_storage_buffer_by_name("SceneMeshes_srv", "scene_meshes");
+                    const bool sv_ok4 =
+                        technique_instance.bind_storage_buffer_by_name("SceneTransforms_srv", "scene_transforms");
 
                     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
-                    const bool apply_ok = texture_ok && sampler_ok && world_ok && camera_ok && technique_instance.apply();
-                    assert(apply_ok);
+                    const bool apply_ok = texture_ok && sampler_ok && camera_ok && sv_ok0 && sv_ok1 && sv_ok2 && sv_ok3 &&
+                                          sv_ok4 && technique_instance.apply();
 
-                    auto&& indirect_command_buffer =
-                        Gfx_main::resource_manager().get_storage_buffer("indirect_command_buffer");
+                    if (apply_ok) {
+                        auto&& indirect_command_buffer =
+                            Gfx_main::resource_manager().get_storage_buffer("indirect_command_buffer");
+                        auto&& indirect_count_buffer =
+                            Gfx_main::resource_manager().get_storage_buffer("indirect_count_buffer");
+                        const uint32_t max_draw_count = static_cast<uint32_t>(scene.m_instances.size());
 
-                    if (apply_ok && indirect_command_buffer.m_buffer != VK_NULL_HANDLE) {
-
-                        const VkDeviceSize offset =
-                            static_cast<VkDeviceSize>(instance_index) * sizeof(VkDrawMeshTasksIndirectCommandEXT);
-
-                        cmd.drawMeshTasksIndirectEXT(
-                            indirect_command_buffer.m_buffer, offset, 1, sizeof(VkDrawMeshTasksIndirectCommandEXT));
+                        if (indirect_command_buffer.m_buffer != VK_NULL_HANDLE &&
+                            indirect_count_buffer.m_buffer != VK_NULL_HANDLE && max_draw_count > 0) {
+                            cmd.drawMeshTasksIndirectCountEXT(indirect_command_buffer.m_buffer,
+                                0,
+                                indirect_count_buffer.m_buffer,
+                                0,
+                                max_draw_count,
+                                sizeof(VkDrawMeshTasksIndirectCommandEXT));
+                        }
                     }
                 }
             }

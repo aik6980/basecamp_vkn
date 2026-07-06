@@ -15,8 +15,11 @@ struct ResourceUse {
     vk::AccessFlags2 access       = vk::AccessFlagBits2::eNone;
     vk::PipelineStageFlags2 stage = vk::PipelineStageFlagBits2::eTopOfPipe;
 
+    // Resource kind metadata.
+    bool is_image  = false;
+    bool is_buffer = false;
+
     // Optional image metadata for layout/barrier ownership.
-    bool is_image   = false;
     vk::Image image = {};
     vk::ImageSubresourceRange image_range{
         .aspectMask     = vk::ImageAspectFlagBits::eColor,
@@ -25,6 +28,11 @@ struct ResourceUse {
         .baseArrayLayer = 0,
         .layerCount     = 1,
     };
+
+    // Optional buffer metadata for barrier ownership.
+    vk::Buffer buffer               = {};
+    vk::DeviceSize buffer_offset    = 0;
+    vk::DeviceSize buffer_size      = VK_WHOLE_SIZE;
 };
 
 struct PassNode {

@@ -219,8 +219,16 @@ void App::create_scene()
     }
     resource_manager.create_storage_buffer_typed("indirect_command_buffer",
         indirect_commands,
-        vk::BufferUsageFlagBits::eIndirectBuffer // Important!
+        vk::BufferUsageFlagBits::eIndirectBuffer
     );
+
+
+    std::vector<uint32_t> indirect_count_init(1u, 0u);
+resource_manager.create_storage_buffer_typed(
+    "indirect_count_buffer",
+    indirect_count_init,
+    vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eTransferDst
+);
 
     // Upload mesh data to scene state
     g_scene_state.bootstrap_demo_scene();
