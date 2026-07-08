@@ -77,6 +77,7 @@ struct Indirect_mesh_task_command {
     uint32_t m_group_count_x;
     uint32_t m_group_count_y;
     uint32_t m_group_count_z;
+    uint32_t m_instance_id;
 };
 
 #endif

@@ -16,6 +16,13 @@ StructuredBuffer<Scene_instance_desc> SceneInstances_srv : register(t6);
 StructuredBuffer<Scene_mesh_desc> SceneMeshes_srv : register(t7);
 StructuredBuffer<Scene_transform_desc> SceneTransforms_srv : register(t8);
 
+// DrawID workaround
+StructuredBuffer<Indirect_mesh_task_command> IndirectCommands_srv : register(t9);
+RWStructuredBuffer<uint> Taskgroup_counter_uav : register(u10);
+
+groupshared uint gs_command_index;
+groupshared uint gs_instance_id;
+
 struct PS_INPUT {
     float4 position : SV_Position;
     float3 colour : Colour;
@@ -29,11 +36,21 @@ static const uint k_max_tris  = 64;
 [numthreads(64, 1, 1)]
 void msmain(
     uint gtid : SV_GroupThreadID,
-    uint draw_id : SV_DrawID,
     out vertices PS_INPUT verts[k_max_verts],
     out indices uint3 tris[k_max_tris])
 {
-    Scene_instance_desc inst = SceneInstances_srv[draw_id];
+    // Thread 0: atomically get this taskgroup's command index
+    if (gtid == 0) {
+        uint cmd_idx = 0;
+        InterlockedAdd(Taskgroup_counter_uav[0], 1, cmd_idx);
+        gs_command_index = cmd_idx;
+        gs_instance_id = IndirectCommands_srv[cmd_idx].m_instance_id;
+    }
+    
+    GroupMemoryBarrierWithGroupSync();
+
+    uint instance_id = gs_instance_id;
+    Scene_instance_desc inst = SceneInstances_srv[instance_id];
     Scene_mesh_desc mesh     = SceneMeshes_srv[inst.m_mesh_id];
     Scene_transform_desc xf  = SceneTransforms_srv[inst.m_transform_id];
 

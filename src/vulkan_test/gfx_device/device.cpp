@@ -585,10 +585,6 @@ namespace VKN {
         // create physical device and logical device
         auto&& device_extensions = get_device_extensions();
 
-        auto&& scalar_block_layout_features = vk::PhysicalDeviceScalarBlockLayoutFeatures{
-            .scalarBlockLayout = VK_TRUE,
-        };
-
         auto&& required_dynamic_rendering = vk::PhysicalDeviceDynamicRenderingFeaturesKHR{
             .dynamicRendering = VK_TRUE,
         };
@@ -597,22 +593,12 @@ namespace VKN {
             .synchronization2 = VK_TRUE,
         };
 
-        auto&& required_descriptor_indexing = vk::PhysicalDeviceDescriptorIndexingFeatures{
-            .descriptorBindingPartiallyBound          = VK_TRUE, // optional but useful?
-            .descriptorBindingVariableDescriptorCount = VK_TRUE,
-            .runtimeDescriptorArray                   = VK_TRUE,
-        };
-
         auto&& required_mesh_shader = vk::PhysicalDeviceMeshShaderFeaturesEXT{
             .taskShader = VK_FALSE,
             .meshShader = VK_TRUE,
         };
 
         // Enable raytracing features
-        auto&& required_bda = vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR{
-            .bufferDeviceAddress = VK_TRUE,
-        };
-
         auto&& accel_struct_features = vk::PhysicalDeviceAccelerationStructureFeaturesKHR{
             .accelerationStructure                                 = VK_TRUE, // Enable BLAS/TLAS creation
             .accelerationStructureCaptureReplay                    = VK_FALSE,
@@ -633,16 +619,24 @@ namespace VKN {
             .rayQuery = VK_TRUE,
         };
 
+        // need this for vkCmdDrawMeshTasksIndirectCountEXT
+        auto&& features12 = vk::PhysicalDeviceVulkan12Features{
+            .drawIndirectCount                        = VK_TRUE,
+            .descriptorBindingPartiallyBound          = VK_TRUE, // optional but useful?
+            .descriptorBindingVariableDescriptorCount = VK_TRUE,
+            .runtimeDescriptorArray                   = VK_TRUE,
+            .scalarBlockLayout                        = VK_TRUE,
+            .bufferDeviceAddress                      = VK_TRUE, // For raytracing 
+        };
+
         vkb::PhysicalDeviceSelector selector{vkb_instance};
 
         auto&& ret_physical_device = selector.set_surface(static_cast<VkSurfaceKHR>(m_surface))
                                          .add_required_extensions(device_extensions)
-                                         .add_required_extension_features(scalar_block_layout_features)
+                                         .add_required_extension_features(features12)
                                          .add_required_extension_features(required_dynamic_rendering)
                                          .add_required_extension_features(required_synchronization2)
-                                         .add_required_extension_features(required_descriptor_indexing)
                                          .add_required_extension_features(required_mesh_shader)
-                                         .add_required_extension_features(required_bda)
                                          .add_required_extension_features(accel_struct_features)
                                          .add_required_extension_features(raytracing_features)
                                          .add_required_extension_features(ray_query_features)

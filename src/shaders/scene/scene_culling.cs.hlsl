@@ -1,8 +1,8 @@
 #include "../hlsl_shared_struct.h"
 
 StructuredBuffer<Scene_instance_desc> scene_instance_srv : register(t0);
-RWStructuredBuffer<Indirect_mesh_task_command> indirect_command_uav : register(u0);
-RWStructuredBuffer<uint> instance_count_uav : register(u1);
+RWStructuredBuffer<Indirect_mesh_task_command> indirect_command_uav : register(u1);
+RWStructuredBuffer<uint> instance_count_uav : register(u2);
 
 [numthreads(64, 1, 1)] 
 void csmain(uint3 dtid : SV_DispatchThreadID) 
@@ -25,5 +25,6 @@ void csmain(uint3 dtid : SV_DispatchThreadID)
     cmd.m_group_count_x            = 1;
     cmd.m_group_count_y            = 1;
     cmd.m_group_count_z            = 1;
+    cmd.m_instance_id              = instance_id;
     indirect_command_uav[write_index] = cmd;
 }

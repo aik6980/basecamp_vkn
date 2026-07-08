@@ -175,18 +175,38 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
     };
     frame_graph.add_pass(culling_pass);
 
+    // Before culling_pass.execute, add:
+    PassNode reset_taskgroup_counter;
+    reset_taskgroup_counter.name               = "reset_taskgroup_counter";
+    auto&& taskgroup_counter_buffer            = resource_manager.get_storage_buffer("taskgroup_counter_buffer");
+    const uint32_t taskgroup_counter_buffer_id = frame_graph.get_or_create_resource_id("taskgroup_counter_buffer");
+
+    reset_taskgroup_counter.writes.push_back(ResourceUse{
+        .resource_id = taskgroup_counter_buffer_id,
+        .is_write    = true,
+        .layout      = vk::ImageLayout::eUndefined,
+        .access      = vk::AccessFlagBits2::eTransferWrite,
+        .stage       = vk::PipelineStageFlagBits2::eTransfer,
+        .is_buffer   = true,
+        .buffer      = taskgroup_counter_buffer.m_buffer,
+    });
+    reset_taskgroup_counter.execute = [taskgroup_counter_buffer](vk::CommandBuffer& cmd) {
+        cmd.fillBuffer(taskgroup_counter_buffer.m_buffer, 0, sizeof(uint32_t), 0u);
+    };
+    frame_graph.add_pass(reset_taskgroup_counter);
+
     // Add raster pass:
     PassNode raster_pass;
     raster_pass.name = "main_scene_raster_pass";
 
     raster_pass.reads.push_back(ResourceUse{
-        .resource_id   = res_indirect_cmds,
-        .is_write      = false,
-        .layout        = vk::ImageLayout::eUndefined,
-        .access        = vk::AccessFlagBits2::eIndirectCommandRead,
-        .stage         = vk::PipelineStageFlagBits2::eDrawIndirect,
-        .is_buffer     = true,
-        .buffer        = indirect_cmd_buffer.m_buffer,
+        .resource_id = res_indirect_cmds,
+        .is_write    = false,
+        .layout      = vk::ImageLayout::eUndefined,
+        .access      = vk::AccessFlagBits2::eIndirectCommandRead,
+        .stage       = vk::PipelineStageFlagBits2::eDrawIndirect,
+        .is_buffer   = true,
+        .buffer      = indirect_cmd_buffer.m_buffer,
     });
     raster_pass.reads.push_back(ResourceUse{
         .resource_id = res_indirect_count,
@@ -234,6 +254,16 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
                 .baseArrayLayer = 0,
                 .layerCount     = 1,
             },
+    });
+
+    raster_pass.writes.push_back(ResourceUse{
+        .resource_id = taskgroup_counter_buffer_id,
+        .is_write    = true,
+        .layout      = vk::ImageLayout::eUndefined,
+        .access      = vk::AccessFlagBits2::eShaderStorageWrite,
+        .stage       = vk::PipelineStageFlagBits2::eMeshShaderEXT,
+        .is_buffer   = true,
+        .buffer      = taskgroup_counter_buffer.m_buffer,
     });
 
     raster_pass.execute = [scene_state](vk::CommandBuffer& cmd) {
@@ -345,15 +375,21 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
                     const bool sv_ok4 =
                         technique_instance.bind_storage_buffer_by_name("SceneTransforms_srv", "scene_transforms");
 
+                    const bool sv_ok5 =
+                        technique_instance.bind_storage_buffer_by_name("Taskgroup_counter_uav", "taskgroup_counter_buffer");
+                    const bool sv_ok6 =
+                        technique_instance.bind_storage_buffer_by_name("IndirectCommands_srv", "indirect_command_buffer");
+
                     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, technique->m_pipeline);
                     const bool apply_ok = texture_ok && sampler_ok && camera_ok && sv_ok0 && sv_ok1 && sv_ok2 && sv_ok3 &&
-                                          sv_ok4 && technique_instance.apply();
+                                          sv_ok4 && sv_ok5 && sv_ok6 && technique_instance.apply();
 
                     if (apply_ok) {
                         auto&& indirect_command_buffer =
                             Gfx_main::resource_manager().get_storage_buffer("indirect_command_buffer");
                         auto&& indirect_count_buffer =
                             Gfx_main::resource_manager().get_storage_buffer("indirect_count_buffer");
+
                         const uint32_t max_draw_count = static_cast<uint32_t>(scene.m_instances.size());
 
                         if (indirect_command_buffer.m_buffer != VK_NULL_HANDLE &&
@@ -363,7 +399,7 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
                                 indirect_count_buffer.m_buffer,
                                 0,
                                 max_draw_count,
-                                sizeof(VkDrawMeshTasksIndirectCommandEXT));
+                                sizeof(Indirect_mesh_task_command));
                         }
                     }
                 }

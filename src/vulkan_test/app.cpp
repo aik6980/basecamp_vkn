@@ -209,26 +209,22 @@ void App::create_scene()
     resource_manager.create_storage_buffer_typed("scene_indices", indices);
 
     // Create indirect command buffer (16 commands for 16 instances)
-    std::vector<VkDrawMeshTasksIndirectCommandEXT> indirect_commands(16);
+    std::vector<Indirect_mesh_task_command> indirect_commands(16);
     for (uint32_t i = 0; i < 16; ++i) {
-        indirect_commands[i] = VkDrawMeshTasksIndirectCommandEXT{
-            .groupCountX = 1,
-            .groupCountY = 1,
-            .groupCountZ = 1
-        };
+        indirect_commands[i] = Indirect_mesh_task_command{.m_group_count_x = 1, .m_group_count_y = 1, .m_group_count_z = 1, .m_instance_id = 0};
     }
-    resource_manager.create_storage_buffer_typed("indirect_command_buffer",
-        indirect_commands,
-        vk::BufferUsageFlagBits::eIndirectBuffer
-    );
-
+    resource_manager.create_storage_buffer_typed(
+        "indirect_command_buffer", indirect_commands, vk::BufferUsageFlagBits::eIndirectBuffer);
 
     std::vector<uint32_t> indirect_count_init(1u, 0u);
-resource_manager.create_storage_buffer_typed(
-    "indirect_count_buffer",
-    indirect_count_init,
-    vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eTransferDst
-);
+    resource_manager.create_storage_buffer_typed("indirect_count_buffer",
+        indirect_count_init,
+        vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eTransferDst);
+
+    resource_manager.create_storage_buffer_typed("taskgroup_counter_buffer",
+        indirect_count_init,
+        vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst);
+
 
     // Upload mesh data to scene state
     g_scene_state.bootstrap_demo_scene();
