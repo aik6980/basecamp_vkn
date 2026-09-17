@@ -211,7 +211,7 @@ void App::create_scene()
     // Create indirect command buffer (16 commands for 16 instances)
     std::vector<Indirect_mesh_task_command> indirect_commands(16);
     for (uint32_t i = 0; i < 16; ++i) {
-        indirect_commands[i] = Indirect_mesh_task_command{.m_group_count_x = 1, .m_group_count_y = 1, .m_group_count_z = 1, .m_instance_id = 0};
+        indirect_commands[i] = Indirect_mesh_task_command{.m_group_count_x = 1, .m_group_count_y = 1, .m_group_count_z = 1, .m_draw_id = 0};
     }
     resource_manager.create_storage_buffer_typed(
         "indirect_command_buffer", indirect_commands, vk::BufferUsageFlagBits::eIndirectBuffer);
