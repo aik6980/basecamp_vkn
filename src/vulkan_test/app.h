@@ -16,7 +16,11 @@ class App {
     void on_update();
     void on_destroy();
 
+  #if defined(_WIN32)
     void on_event_msg(const MSG msg){};
+  #else
+    void on_event_msg(const SDL_Event& event){}
+  #endif
 
     void create_scene();
     void render_scene();

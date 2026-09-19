@@ -38,12 +38,11 @@ namespace VKN {
             size_t total_size = data.size() * sizeof(T);
             create_storage_buffer(name, data.data(), total_size, additional_usage_flags);
 
-            OutputDebugStringA(DBG::Format("Created buffer '%s': %zu elements x %zu bytes = %zu total\n",
+            DBG::OutputString("Created buffer '%s': %zu elements x %zu bytes = %zu total\n",
                 name.c_str(),
                 data.size(),
                 sizeof(T),
-                total_size)
-                    .c_str());
+                total_size);
         }
 
         Buffer m_vertex_buffer;

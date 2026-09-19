@@ -3,6 +3,8 @@
 #include "app.h"
 #include "gfx_device/device.h"
 
+#if defined(_WIN32)
+
 const int WINDOW_WIDTH  = 1920 / 2;
 const int WINDOW_HEIGHT = 1080 / 2;
 
@@ -131,3 +133,59 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow
 
     return RunMainWindow(hInstance, nCmdShow);
 }
+#else
+
+constexpr int WINDOW_WIDTH = 1920 / 2;
+constexpr int WINDOW_HEIGHT = 1080 / 2;
+
+int main(int argc, char** argv)
+{
+    if (argc > 1 && std::string(argv[1]) == "--validate") {
+        VKN::g_enable_validation = true;
+    }
+
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        std::cerr << "SDL initialization failed: " << SDL_GetError() << '\n';
+        return -1;
+    }
+
+    SDL_Window* window = SDL_CreateWindow("Basecamp Vulkan",
+        SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED,
+        WINDOW_WIDTH,
+        WINDOW_HEIGHT,
+        SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    if (!window) {
+        std::cerr << "SDL window creation failed: " << SDL_GetError() << '\n';
+        SDL_Quit();
+        return -1;
+    }
+
+    App app;
+    try {
+        app.on_init(nullptr, window);
+        bool running = true;
+        while (running) {
+            SDL_Event event;
+            while (SDL_PollEvent(&event)) {
+                if (event.type == SDL_QUIT) {
+                    running = false;
+                }
+                app.on_event_msg(event);
+            }
+            app.on_update();
+        }
+        app.on_destroy();
+    }
+    catch (const std::exception& err) {
+        std::cerr << "Application error: " << err.what() << '\n';
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
+    }
+
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 0;
+}
+#endif

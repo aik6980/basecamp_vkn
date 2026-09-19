@@ -20,7 +20,7 @@ StructuredBuffer<Scene_transform_desc> SceneTransforms_srv : register(t8);
 StructuredBuffer<Indirect_mesh_task_command> IndirectCommands_srv : register(t9);
 RWStructuredBuffer<uint> Taskgroup_counter_uav : register(u10);
 
-StructuredBuffer<uint> Visible_instanceId_srv : register(t9);
+//StructuredBuffer<uint> Visible_instanceId_srv : register(t9);
 
 groupshared uint gs_command_index;
 groupshared uint gs_instance_id;

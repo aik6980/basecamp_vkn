@@ -6,25 +6,26 @@ add_library(${PROJECT_NAME} STATIC ${PROJECT_FILES})
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE stdafx.h)
 
-add_library(LIB_OIS STATIC IMPORTED)
-set_target_properties(LIB_OIS PROPERTIES
-    IMPORTED_LOCATION_DEBUG "${CMAKE_SOURCE_DIR}/ext/ois/OIS_d.lib"
-    IMPORTED_LOCATION_RELEASE "${CMAKE_SOURCE_DIR}/ext/ois/OIS.lib"
-)
-
-add_library(LIB_ASSIMP STATIC IMPORTED)
-set_target_properties(LIB_ASSIMP PROPERTIES
-    IMPORTED_LOCATION_DEBUG "${CMAKE_SOURCE_DIR}/assimp/assimp-vc143-mtd.lib"
-    IMPORTED_LOCATION_RELEASE "${CMAKE_SOURCE_DIR}/assimp/assimp-vc143-mt.lib"
-)
-
 # GLM is header-only, just add the include directory
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/ext/glm/include")
 
 #set(LIB_OIS ${CMAKE_SOURCE_DIR}/ext/ois/OIS_d.lib)
 #set(LIB_ASSIMP ${CMAKE_SOURCE_DIR}/ext/assimp/assimp-vc143-mt.lib)
 
-target_link_libraries(${PROJECT_NAME} ${LIB_OIS} ${LIB_ASSIMP})
+if (WIN32)
+    add_library(LIB_OIS STATIC IMPORTED)
+    set_target_properties(LIB_OIS PROPERTIES
+        IMPORTED_LOCATION_DEBUG "${CMAKE_SOURCE_DIR}/ext/ois/OIS_d.lib"
+        IMPORTED_LOCATION_RELEASE "${CMAKE_SOURCE_DIR}/ext/ois/OIS.lib"
+    )
+
+    add_library(LIB_ASSIMP STATIC IMPORTED)
+    set_target_properties(LIB_ASSIMP PROPERTIES
+        IMPORTED_LOCATION_DEBUG "${CMAKE_SOURCE_DIR}/assimp/assimp-vc143-mtd.lib"
+        IMPORTED_LOCATION_RELEASE "${CMAKE_SOURCE_DIR}/assimp/assimp-vc143-mt.lib"
+    )
+    target_link_libraries(${PROJECT_NAME} ${LIB_OIS} ${LIB_ASSIMP})
+endif()
 
 set(INC_OIS ${CMAKE_SOURCE_DIR}/ext/ois/include)
 set(INC_ASSIMP ${CMAKE_SOURCE_DIR}/ext/assimp/include)

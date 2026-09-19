@@ -75,7 +75,6 @@ namespace VKN {
         std::unique_ptr<Shader_manager> m_shader_manager;
 
       private:
-        void create_from_initialization_helper();
         void create_from_vk_bootstrap();
 
         void create_surface();

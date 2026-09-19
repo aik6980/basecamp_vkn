@@ -80,7 +80,8 @@ void Main_renderer::draw()
             f << mermaid;
         }
 
-        OutputDebugStringA(("FrameGraph exported: " + dot_path.string() + " , " + mmd_path.string() + "\n").c_str());
+        DBG::OutputString(("FrameGraph exported: " + dot_path.string() + " , " + mmd_path.string() + "\n").c_str());
+            DBG::OutputString(("FrameGraph exported: " + dot_path.string() + " , " + mmd_path.string() + "\n").c_str());
     }
 }
 
@@ -326,12 +327,12 @@ void Main_renderer::build_main_scene_passes(Frame_graph& frame_graph)
                                   " mat=" + std::to_string(counters.m_materials) +
                                   " xform=" + std::to_string(counters.m_transforms) +
                                   " inst=" + std::to_string(counters.m_instances) + "\n";
-                OutputDebugStringA(msg.c_str());
+                DBG::OutputString(msg.c_str());
 
                 if (!validation.m_ok) {
                     std::string err = "Scene validation failed at instance " + std::to_string(validation.m_instance_index) +
                                       " reason: " + validation.m_reason + "\n";
-                    OutputDebugStringA(err.c_str());
+                    DBG::OutputString(err.c_str());
                 }
             }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <codecvt>
+
 // https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x
 
 // template <typename T, typename... Rest>

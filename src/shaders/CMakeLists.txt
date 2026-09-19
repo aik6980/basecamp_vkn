@@ -24,7 +24,8 @@ endmacro()
 
 # DXC compiling
 # https://simoncoenen.com/blog/programming/graphics/DxcCompiling	
-macro(Dxc_compile src_files dxc_path profile entry_point stage_suffix spirv_opt)
+macro(Dxc_compile src_files dxc_path profile entry_point stage_suffix)
+	set(spirv_opt ${ARGN})
 	foreach(var ${src_files})
 		get_filename_component(file_wle ${var} NAME_WLE)
 		# remove .ras extension for raster shaders, replace with .vs/.ps depending on the profile
@@ -88,18 +89,22 @@ set_source_files_properties(${ALL_FILES} PROPERTIES VS_TOOL_OVERRIDE "None")
 #	PATHS "$ENV{PROGRAMFILES\(X86\)}/Windows Kits/10/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64")
 #set(DXC "${CMAKE_SOURCE_DIR}/ext/dxc/dxc.exe")
 # use dxc from the Vulkan SDK, which is more up to date than the one in Windows SDK
-find_package(Vulkan)
-set(DXC "${Vulkan_INCLUDE_DIRS}/../bin/dxc.exe")
+find_program(DXC dxc dxc.exe HINTS "$ENV{VULKAN_SDK}/bin")
+if (NOT DXC)
+	message(FATAL_ERROR "DXC was not found. Install the LunarG Vulkan SDK and set VULKAN_SDK.")
+endif()
 
 file(MAKE_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/${PROJECT_NAME})
 
-add_custom_command(TARGET ${PROJECT_NAME}
-		PRE_BUILD 
-		COMMAND del *.* /q
-		COMMAND echo Cleaning files
-		WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/${PROJECT_NAME}
-		VERBATIM
-		)
+if (WIN32)
+	add_custom_command(TARGET ${PROJECT_NAME}
+			PRE_BUILD
+			COMMAND del *.* /q
+			COMMAND echo Cleaning files
+			WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/${PROJECT_NAME}
+			VERBATIM
+			)
+endif()
 #message("Cleaning files{\"\\n\", s8b}")
 
 Dxc_compile("${RAS_VS_FILES}" ${DXC} "vs_6_0" "vsmain" "vs" "")
@@ -131,29 +136,37 @@ add_custom_target(${PROJECT_NAME} SOURCES ${ALL_FILES} DEPENDS ${OUTPUT_FILES})
 
 set_source_files_properties(${ALL_FILES} PROPERTIES VS_TOOL_OVERRIDE "None")
 
-find_package(Vulkan)
-set(DXC "${Vulkan_INCLUDE_DIRS}/../bin/dxc.exe")
+find_program(DXC dxc dxc.exe HINTS "$ENV{VULKAN_SDK}/bin")
+if (NOT DXC)
+	message(FATAL_ERROR "DXC was not found. Install the LunarG Vulkan SDK and set VULKAN_SDK.")
+endif()
 
 
 file(MAKE_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/${PROJECT_NAME})
 
-add_custom_command(TARGET ${PROJECT_NAME}
-		PRE_BUILD 
-		COMMAND del *.* /q
-		COMMAND echo Cleaning files
-		WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/${PROJECT_NAME}
-		VERBATIM
-		)
+if (WIN32)
+	add_custom_command(TARGET ${PROJECT_NAME}
+			PRE_BUILD
+			COMMAND del *.* /q
+			COMMAND echo Cleaning files
+			WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}/${PROJECT_NAME}
+			VERBATIM
+			)
+endif()
 		
 # -fvk-use-scalar-layout indicates "scalarBlockLayout feature is enabled on the device".
 # this flag allow structure members to be laid out in memory without padding required
-set(SPIRV_OPTS "-spirv -fvk-use-scalar-layout -fspv-target-env=\"vulkan1.1spirv1.4\"")
+set(SPIRV_OPTS
+	-spirv
+	-fvk-use-scalar-layout
+	-fspv-target-env=vulkan1.1spirv1.4
+)
 message(${SPIRV_OPTS})
 
 Dxc_compile("${RAS_VS_FILES}" ${DXC} "vs_6_0" "vsmain" "vs" ${SPIRV_OPTS} )
 Dxc_compile("${RAS_PS_FILES}" ${DXC} "ps_6_0" "psmain" "ps" ${SPIRV_OPTS} )
 Dxc_compile("${RAS_MS_FILES}" ${DXC} "ms_6_5" "msmain" "ms" ${SPIRV_OPTS} )
 Dxc_compile("${CS_FILES}" ${DXC} "cs_6_0" "csmain" "cs" ${SPIRV_OPTS} )
-Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "" "ray" ${SPIRV_OPTS} )
+Dxc_compile("${RAY_FILES}" ${DXC} "lib_6_5" "" "ray" ${SPIRV_OPTS})
 
 func_group_src("${ALL_FILES}")

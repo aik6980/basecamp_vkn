@@ -23,9 +23,10 @@ VKN::Render_scene_state g_scene_state;
 void render_thread_func()
 {
     while (game_running) {
-
-        Sleep(1000);
-        OutputDebugString(L"render frame\n");
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+#if defined(_WIN32)
+    DBG::OutputString("render frame\n");
+#endif
     }
 }
 
@@ -34,10 +35,12 @@ void App::on_init(HINSTANCE hInstance, HWND hWnd)
     m_hInstance = hInstance;
     m_hWnd      = hWnd;
 
+#if defined(_WIN32)
     OutputDebugString(L"app start\n");
+#endif
 
     // time
-    m_time_begin_frame = m_time_begin_app = std::chrono::high_resolution_clock::now();
+    m_time_begin_frame = m_time_begin_app = std::chrono::steady_clock::now();
 
     // m_engine->update();
     // render thread
@@ -73,17 +76,24 @@ constexpr std::array<Main_renderer::Render_mode, 3> k_test_sequence = {
 void App::on_update()
 {
 
+#if defined(_WIN32)
     if ((GetAsyncKeyState(VK_F8) & 0x0001) != 0) {
         main_renderer.request_framegraph_dump();
     }
+#endif
 
     // frame time
     m_duration_frame =
         std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - m_time_begin_frame);
     m_time_begin_frame = std::chrono::steady_clock::now();
 
+#if defined(_WIN32)
     auto&& debug_str = DBG::Format(L"Cureent frame time %.4f ms", m_duration_frame.count() / 1000.0f);
     SetWindowText(m_hWnd, debug_str.c_str());
+#else
+    auto debug_str = DBG::Format("Current frame time %.4f ms", m_duration_frame.count() / 1000.0f);
+    SDL_SetWindowTitle(m_hWnd, debug_str.c_str());
+#endif
 
     // Update automatic mode cycling
     if (g_auto_mode_cycle.m_enabled && !g_auto_mode_cycle.m_finished) {
@@ -97,7 +107,11 @@ void App::on_update()
             // Hand off to final 3D scene mode after all verification passes.
             main_renderer.set_render_mode(Main_renderer::Render_mode::MainScene3D);
             g_auto_mode_cycle.m_finished = true;
+#if defined(_WIN32)
             OutputDebugStringA("Auto-cycle complete. Switched to MainScene3D.\n");
+#else
+            std::cout << "Auto-cycle complete. Switched to MainScene3D.\n";
+#endif
         }
     }
 
@@ -117,7 +131,9 @@ void App::on_destroy()
 
     Gfx_main::destroy();
 
+#if defined(_WIN32)
     OutputDebugString(L"app destroy\n");
+#endif
 }
 
 void App::create_scene()
@@ -285,7 +301,7 @@ void App::create_scene()
 
     // Store TLAS for later reference in raytracing dispatch
     // (You'll use this in main_renderer.cpp)
-    OutputDebugStringA("BLAS/TLAS built successfully\n");
+    DBG::OutputString("BLAS/TLAS built successfully\n");
 
     // Start automatic mode cycling
     main_renderer.set_render_mode(k_test_sequence[0]);

@@ -491,48 +491,6 @@ namespace VKN {
         create_sync_object();
     }
 
-    void Device::create_from_initialization_helper()
-    {
-        Retired_code::Initialization_helper helper;
-
-        // create Instance
-        helper.m_req_api_version          = m_req_api_version;
-        helper.m_instance_extension_names = get_instance_extensions();
-
-        helper.create_instance();
-
-        m_vk_instance = helper.m_vk_instance;
-
-        // create Surface - and provide it to our helper
-        create_surface();
-
-        // create Device
-        helper.m_surface                         = m_surface;
-        helper.m_physical_device_extension_names = get_device_extensions();
-
-        helper.create_device();
-
-        m_physical_device = helper.m_physical_device;
-        m_device          = helper.m_device;
-
-        // create Swapchain
-        auto&& win_rect = get_window_rect();
-
-        helper.create_swapchain(win_rect);
-
-        m_swapchain             = helper.m_swapchain;
-        m_swapchain_image_views = helper.m_swapchain_image_views;
-        m_swapchain_images      = helper.m_swapchain_images;
-        m_swapchain_image_size  = helper.m_swapchain_image_size;
-        m_swapchain_format      = helper.m_swapchain_format;
-
-        // get queues
-        m_graphics_queue_family_index = helper.m_graphics_queue_family_index;
-        m_present_queue_family_index  = helper.m_present_queue_family_index;
-        m_graphics_queue              = helper.m_graphics_queue;
-        m_present_queue               = helper.m_present_queue;
-    }
-
     void Device::create_from_vk_bootstrap()
     {
 #if (VULKAN_HPP_DISPATCH_LOADER_DYNAMIC == 1)
@@ -579,7 +537,7 @@ namespace VKN {
         VULKAN_HPP_DEFAULT_DISPATCHER.init(m_vk_instance);
 #endif
 
-        // create win32 surface
+        // create the native platform surface
         create_surface();
 
         // create physical device and logical device
@@ -714,6 +672,7 @@ namespace VKN {
 
     void Device::create_surface()
     {
+#if defined(_WIN32)
         // create Surface from Win32;
         vk::Win32SurfaceCreateInfoKHR win32_surface_createinfo{
             .flags     = vk::Win32SurfaceCreateFlagsKHR(),
@@ -722,6 +681,13 @@ namespace VKN {
         };
 
         m_surface = m_vk_instance.createWin32SurfaceKHR(win32_surface_createinfo);
+#else
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    if (!SDL_Vulkan_CreateSurface(m_hwnd, static_cast<VkInstance>(m_vk_instance), &surface)) {
+        throw std::runtime_error(SDL_GetError());
+    }
+    m_surface = vk::SurfaceKHR(surface);
+#endif
     }
 
     void Device::destroy()
@@ -1103,9 +1069,16 @@ namespace VKN {
 
     CRect Device::get_window_rect() const
     {
+#if defined(_WIN32)
         CRect client_rect;
         GetClientRect(m_hwnd, &client_rect);
         return client_rect;
+#else
+        int width = 0;
+        int height = 0;
+        SDL_GetWindowSize(m_hwnd, &width, &height);
+        return CRect(0, 0, width, height);
+#endif
     }
 
 } // namespace VKN

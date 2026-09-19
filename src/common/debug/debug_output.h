@@ -48,14 +48,22 @@ template <typename... Args>
 void OutputString(char const* const fmt, Args const&... args)
 {
     std::string buf = Format(fmt, args...);
+#if defined(_WIN32)
     OutputDebugStringA(buf.c_str());
+#else
+    std::cerr << buf;
+#endif
 }
 
 template <typename... Args>
 void OutputString(wchar_t const* const fmt, Args const&... args)
 {
     std::wstring buf = Format(fmt, args...);
+#if defined(_WIN32)
     OutputDebugStringW(buf.c_str());
+#else
+    std::wcerr << buf;
+#endif
 }
 
 }; // namespace DBG

@@ -68,6 +68,8 @@ Basecamp is designed to support incremental, testable graphics milestones with a
        clang++-20
    
    # Install Vulkan SDK
+   # The SDK is required here because this project uses DXC and SPIRV-Reflect;
+   # the Ubuntu Vulkan packages alone do not provide those components.
    wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
    sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
    sudo apt-get update
